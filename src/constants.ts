@@ -1,0 +1,26 @@
+const CLIENT_ID = "1183134058415394846";
+
+const ECONOMY_THEME_COLOR = 0x8b59f7;
+const BROOK_THEME_COLOR = 0x5f8cff;
+
+// Economy has a prefix and suffix for currency.
+// For instance, you could have money show as "$1,000,000", "1,000,000 dollars", etc.
+
+const ECONOMY_PREFIX = "";
+
+const ECONOMY_SUFFIX_SINGULAR = "<:drop:1309948432856776765>";
+const ECONOMY_SUFFIX_PLURAL = "<:drop:1309948432856776765>";
+
+const ECONOMY_NAME_SINGULAR = "<:drop:1309948432856776765>";
+const ECONOMY_NAME_PLURAL = "<:drop:1309948432856776765>";
+
+export {
+    CLIENT_ID,
+    ECONOMY_THEME_COLOR,
+    ECONOMY_PREFIX,
+    ECONOMY_SUFFIX_SINGULAR,
+    ECONOMY_SUFFIX_PLURAL,
+    ECONOMY_NAME_SINGULAR,
+    ECONOMY_NAME_PLURAL,
+    BROOK_THEME_COLOR
+};
