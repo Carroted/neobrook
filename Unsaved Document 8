@@ -14,3 +14,57 @@ and then theres cronjob for 1st of each month which tallies votes and starts new
 that same check will exist always but it wont happen until atleast the 1st of next month
 
 if current month ID is not match current term and we arent in voting, start voting
+
+
+
+
+
+
+
+
+
+
+
+set up this elections system in typescript for monthly elections:
+
+month ID is like 202411 or 202501, we just do `(year * 100) + month` and then we can nicely store it like that and it sorts too
+terms all have a month ID associated
+
+we have a cronjob and on 24th of each month we switch to voting if not already in
+
+and, each boot of the bot, we will check if between 24th of a month and 1st of next month, and start voting if we arent in voting yet
+
+if we are in a term and its still its month ID, we just do nothing; cronjob for 24th will handle voting
+
+and then theres cronjob for 1st of each month which tallies votes and starts new term, as long as there was an active vote that started at least 3 days ago. if it wasnt 3 days itll just wait (there will be an hourly check for that)
+
+that same check will exist always but it wont happen until atleast the 1st of next month
+
+if current month ID is not match current term and we arent in voting, start voting
+
+---
+
+do above but, use virtual time. instead of using node-cron just do "cronjobs" by doing setTimeout to next event time by calculating difference etc and then set it again when done, etc. this will allow better virtual time
+do super good logging, and have it say state like `YYYY-MM-DD: State: In Voting. Nothing to do` all the time with the date being virtual time
+so for example could have each second make a day pass, and so then after 23 seconds from 2024-01-01 itll be 2024-01-24 and voting starts
+
+for db use this:
+```ts
+import Database from "bun:sqlite";
+// (constructor of Democracy module has db parameter, you dont create db yourself)
+// this.db.run("create table if not exists <...>");
+// syntax is like
+/* this.db.run("insert into orgs (org_id, description, icon, owner, created, members) values (?, ?, ?, ?, ?, ?)", [
+ org_id,
+description,
+icon,
+owner,
+Date.now(),
+JSON.stringify([owner])
+ ]);
+let stmt = this.db.query("select * from orgs where org_id = ?");
+ let rows = stmt.all(org_id); etc*/
+```
+make everything in one file
+
+think everything step by step
