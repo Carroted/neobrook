@@ -25,7 +25,6 @@ export default class Orgs {
 
         this.db.run("create table if not exists orgs (org_id text, description text, icon text, members text, owner text, created integer);"); // members is array of user IDs as JSON
 
-        this.db.run('drop table org_invites');
         // org invites omg
         this.db.run("create table if not exists org_invites (org_id text, user_id text, message_id text);");
 

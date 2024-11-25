@@ -1,0 +1,16 @@
+set up this elections system in typescript with node-cron for monthly elections:
+
+month ID is like 202411 or 202501, we just do `(year * 100) + month` and then we can nicely store it like that and it sorts too
+terms all have a month ID associated
+
+we have a cronjob and on 24th of each month we switch to voting if not already in
+
+and, each boot of the bot, we will check if between 24th of a month and 1st of next month, and start voting if we arent in voting yet
+
+if we are in a term and its still its month ID, we just do nothing; cronjob for 24th will handle voting
+
+and then theres cronjob for 1st of each month which tallies votes and starts new term, as long as there was an active vote that started at least 3 days ago. if it wasnt 3 days itll just wait (there will be an hourly check for that)
+
+that same check will exist always but it wont happen until atleast the 1st of next month
+
+if current month ID is not match current term and we arent in voting, start voting

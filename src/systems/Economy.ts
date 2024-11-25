@@ -1,4 +1,4 @@
-import { ActionRowBuilder, ButtonInteraction, ChatInputCommandInteraction, Client, EmbedBuilder, Events, Message, ModalBuilder, ModalSubmitInteraction, TextInputBuilder, TextInputStyle, User, UserContextMenuCommandInteraction, type APIEmbed, type Interaction, type MessageCreateOptions, type ModalActionRowComponentBuilder, type OmitPartialGroupDMChannel } from "discord.js";
+import { ActionRowBuilder, ButtonInteraction, ChatInputCommandInteraction, Client, EmbedBuilder, Events, Message, ModalBuilder, ModalSubmitInteraction, TextChannel, TextInputBuilder, TextInputStyle, User, UserContextMenuCommandInteraction, type APIEmbed, type Interaction, type MessageCreateOptions, type ModalActionRowComponentBuilder, type OmitPartialGroupDMChannel } from "discord.js";
 import Database from "bun:sqlite";
 import type Orgs from "./Orgs";
 import type { Org } from "./Orgs";
@@ -182,19 +182,23 @@ export default class Economy {
         return 'id' in thing;
     }
 
-    async pay(from: User | Org, to: User | Org, amount: number, interaction: ChatInputCommandInteraction | UserContextMenuCommandInteraction | ModalSubmitInteraction | ButtonInteraction) {
+    async pay(from: User | Org, to: User | Org, amount: number, interaction: ChatInputCommandInteraction | UserContextMenuCommandInteraction | ModalSubmitInteraction | ButtonInteraction | TextChannel) {
         if (isNaN(amount)) {
-            interaction.reply({
-                content: 'Please specify an amount!',
-                ephemeral: true,
-            });
+            if ('reply' in interaction) {
+                interaction.reply({
+                    content: 'Please specify an amount!',
+                    ephemeral: true,
+                });
+            }
             return;
         }
         if (amount < 1) {
-            interaction.reply({
-                content: 'Please specify an amount greater than 0!',
-                ephemeral: true,
-            });
+            if ('reply' in interaction) {
+                interaction.reply({
+                    content: 'Please specify an amount greater than 0!',
+                    ephemeral: true,
+                });
+            }
             return;
         }
 
@@ -249,10 +253,12 @@ export default class Economy {
 
         let money = this.getMoney(fromProfile.id);
         if (money < amount) {
-            interaction.reply({
-                content: 'You don\'t have enough!\n\nYou have **' + stringifyMoney(money) + '**, but you need **' + stringifyMoney(amount) + '**.\n(missing **' + stringifyMoney(amount - money) + '**)',
-                ephemeral: true,
-            });
+            if ('reply' in interaction) {
+                interaction.reply({
+                    content: 'You don\'t have enough!\n\nYou have **' + stringifyMoney(money) + '**, but you need **' + stringifyMoney(amount) + '**.\n(missing **' + stringifyMoney(amount - money) + '**)',
+                    ephemeral: true,
+                });
+            }
             return;
         }
 
@@ -261,17 +267,13 @@ export default class Economy {
         this.changeMoney(fromProfile.id, -amount);
         this.changeMoney(toProfile.id, amount);
 
-        // embed of "Transaction Receipt", shows the same as above commented line, but also shows taxes, all in description
-        await interaction.reply({
-            ephemeral: false,
-            content,
-            embeds: [{
-                color: 0x2b2d31,
-                author: {
-                    name: 'Payment from ' + fromProfile.name + ' to ' + toProfile.name,
-                    icon_url: fromProfile.avatar
-                },
-                description: `## Transaction Receipt\n
+        let embeds = [{
+            color: 0x2b2d31,
+            author: {
+                name: 'Payment from ' + fromProfile.name + ' to ' + toProfile.name,
+                icon_url: fromProfile.avatar
+            },
+            description: `## Transaction Receipt\n
 ${fromProfile.mention}>'s previous balance: **${stringifyMoney(money)}**
 ${toProfile.mention}'s previous balance: **${stringifyMoney(userBMoney)}**
 
@@ -279,9 +281,23 @@ ${toProfile.mention}'s previous balance: **${stringifyMoney(userBMoney)}**
 
 ${fromProfile.mention} now has **${stringifyMoney(this.getMoney(fromProfile.id))}** (<:minus:1309954499850407987> ${stringifyMoney(amount)})
 ${toProfile.mention} now has **${stringifyMoney(this.getMoney(toProfile.id))}** (<:plus:1309954509040124035> ${stringifyMoney(amount)})`
-            }],
-        });
-        const receipt = await interaction.fetchReply();
+        }];
+
+        let receipt: Message;
+        if ('reply' in interaction) {
+            // embed of "Transaction Receipt", shows the same as above commented line, but also shows taxes, all in description
+            await interaction.reply({
+                ephemeral: false,
+                content,
+                embeds,
+            });
+            receipt = await interaction.fetchReply();
+        } else {
+            receipt = await interaction.send({
+                content,
+                embeds,
+            });
+        }
         // store transaction in database
         this.registerTransaction(receipt.url, fromProfile.id, toProfile.id, amount, amount);
 
