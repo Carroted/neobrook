@@ -16,7 +16,7 @@ class Democracy {
         this.virtualTime = initialDate;
 
         this.db.run(`CREATE TABLE IF NOT EXISTS terms (
-            term_id INTEGER PRIMARY KEY,
+            term_id INTEGER,
             start_date INTEGER,
             state TEXT,
             voting_for_next_start INTEGER
@@ -26,17 +26,23 @@ class Democracy {
     }
 
     setState(state: "in_progress" | "voting_for_next_until_1st" | "voting_for_next_for_3_days" | "done") {
-        const termId = this.getMonthId(this.virtualTime);
+        const termId = this.getCurrentTerm()?.term_id;
+        if (!termId) {
+            throw new Error('Sudoers!');
+        }
         this.db.run('UPDATE terms SET state = ? WHERE term_id = ?', [state, termId]);
     }
 
     setVotingStart(time: number) {
-        const termId = this.getMonthId(this.virtualTime);
+        const termId = this.getCurrentTerm()?.term_id;
+        if (!termId) {
+            throw new Error('Sudoers!');
+        }
         this.db.run('UPDATE terms SET voting_for_next_start = ? WHERE term_id = ?', [time, termId]);
     }
 
     getMonthId(date: Date): number {
-        return date.getFullYear() * 100 + (date.getMonth() + 1);
+        return date.getUTCFullYear() * 100 + (date.getUTCMonth() + 1);
     }
 
     getCurrentTerm(): Term | undefined {
@@ -46,7 +52,7 @@ class Democracy {
     }
 
     advanceVirtualDay() {
-        this.virtualTime.setDate(this.virtualTime.getDate() + 1);
+        this.virtualTime.setUTCDate(this.virtualTime.getUTCDate() + 1);
         this.setupNextEvent();
         this.logState();
     }
@@ -60,7 +66,7 @@ class Democracy {
 
     private setupNextEvent() {
         const currentMonthId = this.getMonthId(this.virtualTime);
-        const virtualDay = this.virtualTime.getDate();
+        const virtualDay = this.virtualTime.getUTCDate();
         const term = this.getCurrentTerm();
 
         if (!term) {
@@ -77,9 +83,11 @@ class Democracy {
 
         const voting = term?.state === 'voting_for_next_until_1st' || term?.state === 'voting_for_next_for_3_days';
 
+        //console.log('virtual day is', virtualDay, 'and that', (virtualDay === 1) ? 'is 1st' : 'is insane');
+
         if (!voting && (virtualDay >= 24 || this.getMonthId(new Date(term?.start_date || 0)) !== currentMonthId)) {
             // If it's 24th or the current month ID does not match the current term, start voting
-            this.startVoting();
+            this.startVoting(virtualDay < 23);
             return;
         } else if (virtualDay === 1) { // first of a month and we are we are either Voting or idle
             if (term?.state === 'voting_for_next_until_1st') {
@@ -106,6 +114,7 @@ class Democracy {
 
         const start_date = this.virtualTime.getTime();
         const termId = this.getMonthId(this.virtualTime);
+        console.log('inserting', termId);
 
         this.db.run('INSERT INTO terms (term_id, start_date, state) VALUES (?, ?, ?)', [
             termId,
@@ -115,6 +124,6 @@ class Democracy {
     }
 }
 
-const db = new Database(':memory:');
-const startDate = new Date('2024-01-01T00:00:00Z'); // Initial virtual time
+const db = new Database('elect.db');
+const startDate = new Date('2027-06-03T00:00:00Z'); // Initial virtual time
 const democracy = new Democracy(db, startDate);
