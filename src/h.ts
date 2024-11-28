@@ -100,6 +100,10 @@ class Democracy {
         if (term?.state === 'voting_for_next_for_3_days' && ((term.voting_for_next_start || 0) + (1000 * 60 * 60 * 24 * 3) <= this.virtualTime.getTime())) {
             this.startNewTerm();
         }
+
+        if (term?.state === 'voting_for_next_until_1st' && virtualDay >= 1 && virtualDay < 23) {
+            this.setState('voting_for_next_for_3_days');
+        }
     }
 
     private startVoting(three_day: boolean = false) {
