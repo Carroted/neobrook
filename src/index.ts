@@ -318,7 +318,7 @@ client.on(Events.MessageCreate, async message => {
                                 });
 
                                 // send message json
-                                message.channel.send(JSON.stringify({ status: 200, body: { type: "declined", message: "Payment request declined by the user." } }));
+                                message.reply(JSON.stringify({ status: 200, body: { type: "declined", message: "Payment request declined by the user." } }));
                             }
                             else if (interaction.customId === 'block') {
                                 await interaction.reply({
@@ -346,7 +346,7 @@ client.on(Events.MessageCreate, async message => {
                                 });
 
                                 // send message json
-                                message.channel.send(JSON.stringify({ status: 200, body: { type: "declined", message: "Payment request declined by the user." } }));
+                                message.reply(JSON.stringify({ status: 200, body: { type: "declined", message: "Payment request declined by the user." } }));
                             }
                         });
                     }
