@@ -55,377 +55,385 @@ export default class Economy {
         //this.changeMoney('742396813826457750', 980000);
 
         this.client.on(Events.InteractionCreate, async (interaction) => {
-            if (interaction.isAutocomplete()) {
-                const focusedOption = interaction.options.getFocused(true);
-                if (focusedOption.name === 'type' && interaction.commandName === 'item') {
-                    const types = this.getAllItemTypes();
-                    let matching = types.filter((type) => type.includes(focusedOption.value.toLowerCase()));
-                    await interaction.respond(matching.map((choice) => { return { name: choice, value: choice }; }));
-                }
-            }
-
-            if (interaction.isChatInputCommand()) {
-                if (interaction.commandName === 'claim') {
-                    if (!claimedStarter(interaction.user.id)) {
-                        claimStarter(interaction.user.id);
-                        await interaction.reply({ content: `You have claimed your starter ${ECONOMY_NAME_PLURAL}! You now have **${stringifyMoney(this.getMoney(interaction.user.id))}**.`, ephemeral: false });
-                    } else {
-                        await interaction.reply({ content: `You have already claimed your starter ${ECONOMY_NAME_PLURAL}.`, ephemeral: true });
+            try {
+                if (interaction.isAutocomplete()) {
+                    const focusedOption = interaction.options.getFocused(true);
+                    if (focusedOption.name === 'type' && interaction.commandName === 'item') {
+                        const types = this.getAllItemTypes();
+                        let matching = types.filter((type) => type.includes(focusedOption.value.toLowerCase()));
+                        await interaction.respond(matching.map((choice) => { return { name: choice, value: choice }; }));
                     }
                 }
-                else if (interaction.commandName === 'admin') {
-                    if (interaction.options.getSubcommand() === 'deletetype') {
-                        const type = interaction.options.getString('type', true);
-                        this.db.run('delete from item_types where type=?', [type]);
-                        await interaction.reply({ content: `Deleted item type ${type}.`, ephemeral: false });
-                    }
-                }
-                else if (interaction.commandName === 'pay') {
-                    const amount = Math.abs(interaction.options.getInteger('amount', true));
 
-                    if (interaction.options.getSubcommand() === 'user') {
-                        const user = interaction.options.getUser('target', true);
-
-                        this.pay(interaction.user, user, amount, interaction);
-                    } else if (interaction.options.getSubcommand() === 'org') {
-                        const id = interaction.options.getString('id', true);
-
-                        const org = this.orgs.getOrg(id);
-
-                        if (!org) {
-                            await interaction.reply('Specified org doesn\'t exist!');
+                if (interaction.isChatInputCommand()) {
+                    if (interaction.commandName === 'claim') {
+                        if (!claimedStarter(interaction.user.id)) {
+                            claimStarter(interaction.user.id);
+                            await interaction.reply({ content: `You have claimed your starter ${ECONOMY_NAME_PLURAL}! You now have **${stringifyMoney(this.getMoney(interaction.user.id))}**.`, ephemeral: false });
                         } else {
-                            this.pay(interaction.user, org, amount, interaction);
+                            await interaction.reply({ content: `You have already claimed your starter ${ECONOMY_NAME_PLURAL}.`, ephemeral: true });
                         }
                     }
-                } else if (interaction.commandName === 'balance') {
-                    let money = this.getMoney(interaction.user.id);
-
-                    let profile = {
-                        name: interaction.user.displayName,
-                        avatar: interaction.user.displayAvatarURL(),
-                        id: interaction.user.id,
-                    };
-
-                    let member = interaction.member;
-
-                    if (member) {
-                        if ('displayName' in member) {
-                            profile.name = member.displayName;
+                    else if (interaction.commandName === 'admin') {
+                        if (interaction.options.getSubcommand() === 'deletetype') {
+                            const type = interaction.options.getString('type', true);
+                            this.db.run('delete from item_types where type=?', [type]);
+                            await interaction.reply({ content: `Deleted item type ${type}.`, ephemeral: false });
                         }
-                        if ('displayAvatarURL' in member) {
-                            profile.avatar = member.displayAvatarURL();
-                        }
-                    };
-
-                    await interaction.reply({
-                        embeds: [
-                            {
-                                color: 0x2b2d31,
-                                author: {
-                                    name: profile.name,
-                                    icon_url: profile.avatar,
-                                },
-                                description: `# ${stringifyMoney(money)}\nYour balance`,
-                            }
-                        ],
-                        ephemeral: true,
-                    });
-                } else if (interaction.commandName === 'transactions') {
-                    let transactions = this.getTransactions(interaction.user.id, 10);
-                    if (transactions.length === 0) {
-                        interaction.reply({
-                            content: 'You haven\'t had any transactions yet!',
-                            ephemeral: true,
-                        });
-                        return;
                     }
+                    else if (interaction.commandName === 'pay') {
+                        const amount = Math.abs(interaction.options.getInteger('amount', true));
 
-                    let embed: APIEmbed = {
-                        color: 0x2b2d31,
-                        description: `## Transaction History\n\nUp to 10 recent transactions are displayed.\n\n` + transactions.map(transaction => {
-                            // if its to us, start with +
-                            let regex = /^[0-9]+$/;
-                            if (transaction.recipient === interaction.user.id) {
-                                let formatted = regex.test(transaction.sender) ? `<@${transaction.sender}>` : `${transaction.sender}`;
-                                return `<:plus:1309954509040124035> **${stringifyMoney(transaction.amount_received)}** (from ${formatted}) - [receipt](${transaction.transaction_id}) - <t:${Math.floor(transaction.date / 1000)}:R>`;
-                            }
-                            else {
-                                let formatted = regex.test(transaction.recipient) ? `<@${transaction.recipient}>` : `${transaction.recipient}`;
-                                return `<:minus:1309954499850407987> **${stringifyMoney(transaction.amount_sent)}** (to ${formatted}) - [receipt](${transaction.transaction_id}) - <t:${Math.floor(transaction.date / 1000)}:R>`;
-                            }
-                        }).join('\n')
-                    };
-                    await interaction.reply({ embeds: [embed], ephemeral: true });
-                } else if (interaction.commandName === 'leaderboard') {
-                    let moneyRankings = this.getMoneyRankings(10);
-                    let embed2: APIEmbed = {
-                        color: 0x2b2d31,
-                        title: ECONOMY_NAME_PLURAL + ' Leaderboard',
-                        description: `${stringifyMoney(this.sum())} are currently in circulation.\n\n`
-                    };
-                    let index2 = 0;
-                    let leaderboardCount2 = 0;
-                    while (true) {
-                        if (index2 >= moneyRankings.length) break;
-                        if (leaderboardCount2 >= 10) break;
-                        let row = moneyRankings[index2];
-                        let isUser = /^\d+$/.test(row.user_id);
-                        if (isUser) {
-                            embed2.description += `${leaderboardCount2 + 1}. <@${row.user_id}>: ${stringifyMoney(row.money)}\n`;
-                        } else {
-                            embed2.description += `${leaderboardCount2 + 1}. **${row.user_id}**: ${stringifyMoney(row.money)}\n`;
-                        }
+                        if (interaction.options.getSubcommand() === 'user') {
+                            const user = interaction.options.getUser('target', true);
 
-                        index2++;
-                        leaderboardCount2++;
-                    }
-
-                    interaction.reply({ embeds: [embed2], ephemeral: true });
-                } else if (interaction.commandName === 'inventory') {
-                    let inv = this.getInventory(interaction.user.id);
-                    let embed2: APIEmbed = {
-                        color: 0x2b2d31,
-                        title: 'Inventory',
-                        description: `All the items you've got`,
-                        fields: [],
-                    };
-
-                    for (let item of Object.keys(inv)) {
-                        let type = this.getItemType(item)!;
-                        embed2.fields!.push({
-                            name: `${inv[item]}x ${type.emoji} \`${item}\``,
-                            value: type.name
-                        });
-                    }
-
-                    interaction.reply({ embeds: [embed2], ephemeral: true });
-                } else if (interaction.commandName === 'sum') {
-                    interaction.reply({ content: `The sum of all ${ECONOMY_NAME_PLURAL} is **${stringifyMoney(this.sum())}**.`, ephemeral: true });
-                } else if (interaction.commandName === 'item') {
-                    if (interaction.options.getSubcommand() === 'createtype') {
-                        let id = interaction.options.getString('id', true).toLowerCase().trim();
-                        let existing = this.getItemType(id);
-
-                        if (existing) {
-                            return interaction.reply({ content: `Item type with ID **${id}** already exists.`, ephemeral: true });
-                        } else {
-                            this.addItemType(id, interaction.options.getString('name', true).trim(), (interaction.options.getString('emoji', false) ?? '🪨').trim(), [interaction.user.id], interaction.options.getString('org', true).trim().toLowerCase());
-
-                            interaction.reply({ content: `Item type ${(interaction.options.getString('emoji', false) ?? '🪨').trim()} **${interaction.options.getString('name', true).trim()}** created with ID **${id}**.`, ephemeral: false });
-                        }
-
-                    } else if (interaction.options.getSubcommand() === 'create') {
-                        let type = interaction.options.getString('type', true);
-                        let item = this.getItemType(type);
-                        if (!item) {
-                            interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
-                        } else {
-                            let manufacturers = this.getManufacturers(type);
-                            if (!manufacturers.includes(interaction.user.id)) {
-                                interaction.reply({ content: `You are not a manufacturer of the type **${type}**. You'd need to ask a manufacturer to make you be one too.`, ephemeral: false });
-                                return;
-                            }
-                            this.addInventoryItems(interaction.user.id, type, interaction.options.getInteger('amount', true));
-                            interaction.reply({ content: `Added **${interaction.options.getInteger('amount', true)}** of item type **${type}** to your inventory.`, ephemeral: false });
-                        }
-
-                    } else if (interaction.options.getSubcommand() === 'give') {
-                        let user = interaction.options.getUser('user', true);
-                        let amount = interaction.options.getInteger('amount', false) || 1;
-                        let type = interaction.options.getString('type', true);
-
-                        let inventoryA = this.getInventory(interaction.user.id);
-                        let inventoryB = this.getInventory(user.id);
-
-                        if (!inventoryA[type]) {
-                            interaction.reply({ content: `You don't have any **${type}** in your inventory.`, ephemeral: true });
-                            return;
-                        }
-                        if (inventoryA[type] < amount) {
-                            interaction.reply({ content: `You don't have enough **${type}** in your inventory.`, ephemeral: true });
-                            return;
-                        }
-
-                        this.removeInventoryItems(interaction.user.id, type, amount); // Remove from sender's inventory
-                        this.addInventoryItems(user.id, type, amount); // Add to receiver's inventory
-
-                        interaction.reply({ content: `You have successfully transferred **${amount}** **${type}** to ${user}.`, ephemeral: false });
-                    } else if (interaction.options.getSubcommand() === 'types') {
-                        let types = this.getItemTypesCanManufacture(interaction.user.id);
-                        if (types.length === 0) {
-                            interaction.reply({ content: `You can't manufacture any items at the moment. You can either have someone add you as a manufacturer (/item addmanufacturer) or you can create a new type (/item createtype).`, ephemeral: true })
-                            return;
-                        }
-                        let stringTypes = types.map(type => `**${type}**`).join(', ');
-                        interaction.reply({ content: `You can manufacture the following types: ${stringTypes}.`, ephemeral: true });
-                    } else if (interaction.options.getSubcommand() === 'alltypes') {
-                        let types = this.getAllItemTypes();
-                        if (types.length === 0) {
-                            interaction.reply({ content: `None exist right now. You can create a new type (/item createtype).`, ephemeral: true })
-                            return;
-                        }
-                        let stringTypes = types.map(type => `**${type}**`).join(', ');
-                        interaction.reply({ content: `These types exist: ${stringTypes}.`, ephemeral: true });
-                    } else if (interaction.options.getSubcommand() === 'type') {
-                        let type = interaction.options.getString('type', true);
-                        let item = this.getItemType(type);
-                        if (!item) {
-                            interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
-                        } else {
-                            interaction.reply({ content: `## ${item.emoji} ${item.name}\nThis item type is owned by ${item.owner}.`, ephemeral: true });
-                        }
-                    } else if (interaction.options.getSubcommand() === 'destroy') {
-                        let type = interaction.options.getString('type', true);
-                        let amount = interaction.options.getInteger('amount', false) || 1;
-                        let inventory = this.getInventory(interaction.user.id);
-                        if (!inventory[type]) {
-                            interaction.reply({ content: `You do not have any **${type}**.`, ephemeral: true });
-                        }
-                        else if (inventory[type] < amount) {
-                            amount = inventory[type];
-                        }
-                        this.removeInventoryItems(interaction.user.id, type, amount);
-                        interaction.reply({ content: `You have destroyed **${amount}** ${type} that were in your inventory.`, ephemeral: false });
-                    } else if (interaction.options.getSubcommand() === 'manufacturers') {
-                        let type = interaction.options.getString('type', true);
-                        let item = this.getItemType(type);
-                        if (!item) {
-                            interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
-                        } else {
-                            let manufacturers = this.getManufacturers(type);
-                            interaction.reply({ content: `Manufacturers of **${type}**: ${manufacturers.join(', ')}`, ephemeral: true });
-                        }
-                    } else if (interaction.options.getSubcommand() === 'addmanufacturer') {
-                        let type = interaction.options.getString('type', true);
-                        let user = interaction.options.getUser('user', true);
-
-                        // first make sure exists
-                        let item = this.getItemType(type);
-                        if (!item) {
-                            interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
-                            return;
-                        }
-
-                        // now make sure they are the owner of the org
-                        let org = this.orgs.getOrg(item.owner);
-                        if (!org) {
-                            interaction.reply({ content: `Something fishy is happening. I can feel it`, ephemeral: true });
-                            return;
-                        }
-
-                        if (org.owner !== interaction.user.id) {
-                            interaction.reply({ content: `You are not the owner of the org that owns the item type`, ephemeral: true });
-                            return;
-                        }
-
-                        let manufacturers = this.getManufacturers(type);
-                        if (!manufacturers.includes(user.id)) {
-                            this.addManufacturer(user.id, type);
-                            interaction.reply({ content: `Added **${user.username}** as a manufacturer of **${type}**.`, ephemeral: false });
-                        } else {
-                            interaction.reply({ content: `**${user.username}** is already a manufacturer of **${type}**.`, ephemeral: true });
-                        }
-                    } else if (interaction.options.getSubcommand() === 'removemanufacturer') {
-                        let type = interaction.options.getString('type', true);
-                        let user = interaction.options.getUser('user', true);
-
-                        // first make sure exists
-                        let item = this.getItemType(type);
-                        if (!item) {
-                            interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
-                            return;
-                        }
-
-                        // now make sure they are the owner of the org
-                        let org = this.orgs.getOrg(item.owner);
-                        if (!org) {
-                            interaction.reply({ content: `Something fishy is happening. I can feel it`, ephemeral: true });
-                            return;
-                        }
-
-                        if (org.owner !== interaction.user.id) {
-                            interaction.reply({ content: `You are not the owner of the org that owns the item type`, ephemeral: true });
-                            return;
-                        }
-
-                        let manufacturers = this.getManufacturers(type);
-                        if (manufacturers.includes(user.id)) {
-                            this.removeManufacturer(user.id, type);
-                            interaction.reply({ content: `Removed **${user.username}** as a manufacturer of **${type}**.`, ephemeral: false });
-                        } else {
-                            interaction.reply({ content: `**${user.username}** is not a manufacturer of **${type}**.`, ephemeral: true });
-                        }
-                    } else if (interaction.options.getSubcommand() === 'transfertype') {
-                        const type = interaction.options.getString('type', true);
-                        // first make sure exists
-                        let item = this.getItemType(type);
-                        if (!item) {
-                            interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
-                            return;
-                        }
-
-                        // now make sure they are the owner of the org
-                        let org = this.orgs.getOrg(item.owner);
-                        if (!org) {
-                            interaction.reply({ content: `Something fishy is happening. I can feel it`, ephemeral: true });
-                            return;
-                        }
-
-                        if (org.owner !== interaction.user.id) {
-                            interaction.reply({ content: `You are not the owner of the org that owns the item type`, ephemeral: true });
-                            return;
-                        }
-
-                        let newOrg = this.orgs.getOrg(interaction.options.getString('org', true));
-                        if (!newOrg) {
-                            interaction.reply({ content: `The org you are trying to transfer the item type to does not exist.`, ephemeral: true });
-                            return;
-                        }
-
-                        this.changeItemTypeOwner(type, interaction.options.getString('org', true));
-                        interaction.reply({ content: `The item type has been transferred to ${newOrg.org_id}`, ephemeral: true });
-                    }
-
-                }
-            } else if (interaction.isUserContextMenuCommand()) {
-                if (interaction.commandName === 'Pay User') {
-                    const modal = new ModalBuilder()
-                        .setCustomId('pay_' + interaction.targetUser.id)
-                        .setTitle('Pay User');
-
-                    const amountInput = new TextInputBuilder()
-                        .setCustomId('amount')
-                        .setLabel("Amount to pay")
-                        .setStyle(TextInputStyle.Short);
-
-                    const actionRow = new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(amountInput);
-
-                    modal.addComponents(actionRow);
-
-                    await interaction.showModal(modal);
-                }
-            } else if (interaction.isModalSubmit()) {
-                if (interaction.customId.startsWith('pay_')) {
-                    const amount = Math.abs(parseInt(interaction.fields.getTextInputValue('amount')));
-                    if (isNaN(amount) || amount < 1) {
-                        await interaction.reply({
-                            content: 'Must be a valid number!',
-                            ephemeral: true,
-                        });
-                    } else {
-                        const userID = interaction.customId.replace('pay_', '');
-                        const user = await client.users.fetch(userID);
-                        if (user) {
                             this.pay(interaction.user, user, amount, interaction);
-                        } else {
-                            await interaction.reply({
-                                content: 'Some issue is happen! Help me!',
+                        } else if (interaction.options.getSubcommand() === 'org') {
+                            const id = interaction.options.getString('id', true);
+
+                            const org = this.orgs.getOrg(id);
+
+                            if (!org) {
+                                await interaction.reply('Specified org doesn\'t exist!');
+                            } else {
+                                this.pay(interaction.user, org, amount, interaction);
+                            }
+                        }
+                    } else if (interaction.commandName === 'balance') {
+                        let money = this.getMoney(interaction.user.id);
+
+                        let profile = {
+                            name: interaction.user.displayName,
+                            avatar: interaction.user.displayAvatarURL(),
+                            id: interaction.user.id,
+                        };
+
+                        let member = interaction.member;
+
+                        if (member) {
+                            if ('displayName' in member) {
+                                profile.name = member.displayName;
+                            }
+                            if ('displayAvatarURL' in member) {
+                                profile.avatar = member.displayAvatarURL();
+                            }
+                        };
+
+                        await interaction.reply({
+                            embeds: [
+                                {
+                                    color: 0x2b2d31,
+                                    author: {
+                                        name: profile.name,
+                                        icon_url: profile.avatar,
+                                    },
+                                    description: `# ${stringifyMoney(money)}\nYour balance`,
+                                }
+                            ],
+                            ephemeral: true,
+                        });
+                    } else if (interaction.commandName === 'transactions') {
+                        let transactions = this.getTransactions(interaction.user.id, 10);
+                        if (transactions.length === 0) {
+                            interaction.reply({
+                                content: 'You haven\'t had any transactions yet!',
                                 ephemeral: true,
                             });
+                            return;
+                        }
+
+                        let embed: APIEmbed = {
+                            color: 0x2b2d31,
+                            description: `## Transaction History\n\nUp to 10 recent transactions are displayed.\n\n` + transactions.map(transaction => {
+                                // if its to us, start with +
+                                let regex = /^[0-9]+$/;
+                                if (transaction.recipient === interaction.user.id) {
+                                    let formatted = regex.test(transaction.sender) ? `<@${transaction.sender}>` : `${transaction.sender}`;
+                                    return `<:plus:1309954509040124035> **${stringifyMoney(transaction.amount_received)}** (from ${formatted}) - [receipt](${transaction.transaction_id}) - <t:${Math.floor(transaction.date / 1000)}:R>`;
+                                }
+                                else {
+                                    let formatted = regex.test(transaction.recipient) ? `<@${transaction.recipient}>` : `${transaction.recipient}`;
+                                    return `<:minus:1309954499850407987> **${stringifyMoney(transaction.amount_sent)}** (to ${formatted}) - [receipt](${transaction.transaction_id}) - <t:${Math.floor(transaction.date / 1000)}:R>`;
+                                }
+                            }).join('\n')
+                        };
+                        await interaction.reply({ embeds: [embed], ephemeral: true });
+                    } else if (interaction.commandName === 'leaderboard') {
+                        let moneyRankings = this.getMoneyRankings(10);
+                        let embed2: APIEmbed = {
+                            color: 0x2b2d31,
+                            title: ECONOMY_NAME_PLURAL + ' Leaderboard',
+                            description: `${stringifyMoney(this.sum())} are currently in circulation.\n\n`
+                        };
+                        let index2 = 0;
+                        let leaderboardCount2 = 0;
+                        while (true) {
+                            if (index2 >= moneyRankings.length) break;
+                            if (leaderboardCount2 >= 10) break;
+                            let row = moneyRankings[index2];
+                            let isUser = /^\d+$/.test(row.user_id);
+                            if (isUser) {
+                                embed2.description += `${leaderboardCount2 + 1}. <@${row.user_id}>: ${stringifyMoney(row.money)}\n`;
+                            } else {
+                                embed2.description += `${leaderboardCount2 + 1}. **${row.user_id}**: ${stringifyMoney(row.money)}\n`;
+                            }
+
+                            index2++;
+                            leaderboardCount2++;
+                        }
+
+                        interaction.reply({ embeds: [embed2], ephemeral: true });
+                    } else if (interaction.commandName === 'inventory') {
+                        let inv = this.getInventory(interaction.user.id);
+                        let embed2: APIEmbed = {
+                            color: 0x2b2d31,
+                            title: 'Inventory',
+                            description: `All the items you've got`,
+                            fields: [],
+                        };
+
+                        for (let item of Object.keys(inv)) {
+                            let type = this.getItemType(item)!;
+                            embed2.fields!.push({
+                                name: `${inv[item]}x ${type.emoji} \`${item}\``,
+                                value: type.name
+                            });
+                        }
+
+                        interaction.reply({ embeds: [embed2], ephemeral: true });
+                    } else if (interaction.commandName === 'sum') {
+                        interaction.reply({ content: `The sum of all ${ECONOMY_NAME_PLURAL} is **${stringifyMoney(this.sum())}**.`, ephemeral: true });
+                    } else if (interaction.commandName === 'item') {
+                        if (interaction.options.getSubcommand() === 'createtype') {
+                            let id = interaction.options.getString('id', true).toLowerCase().trim();
+                            let existing = this.getItemType(id);
+
+                            if (existing) {
+                                return interaction.reply({ content: `Item type with ID **${id}** already exists.`, ephemeral: true });
+                            } else {
+                                this.addItemType(id, interaction.options.getString('name', true).trim(), (interaction.options.getString('emoji', false) ?? '🪨').trim(), [interaction.user.id], interaction.options.getString('org', true).trim().toLowerCase());
+
+                                interaction.reply({ content: `Item type ${(interaction.options.getString('emoji', false) ?? '🪨').trim()} **${interaction.options.getString('name', true).trim()}** created with ID **${id}**.`, ephemeral: false });
+                            }
+
+                        } else if (interaction.options.getSubcommand() === 'create') {
+                            let type = interaction.options.getString('type', true);
+                            let item = this.getItemType(type);
+                            if (!item) {
+                                interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
+                            } else {
+                                let manufacturers = this.getManufacturers(type);
+                                if (!manufacturers.includes(interaction.user.id)) {
+                                    interaction.reply({ content: `You are not a manufacturer of the type **${type}**. You'd need to ask a manufacturer to make you be one too.`, ephemeral: false });
+                                    return;
+                                }
+                                this.addInventoryItems(interaction.user.id, type, interaction.options.getInteger('amount', true));
+                                interaction.reply({ content: `Added **${interaction.options.getInteger('amount', true)}** of item type **${type}** to your inventory.`, ephemeral: false });
+                            }
+
+                        } else if (interaction.options.getSubcommand() === 'give') {
+                            let user = interaction.options.getUser('user', true);
+                            let amount = interaction.options.getInteger('amount', false) || 1;
+                            let type = interaction.options.getString('type', true);
+
+                            let inventoryA = this.getInventory(interaction.user.id);
+                            let inventoryB = this.getInventory(user.id);
+
+                            if (!inventoryA[type]) {
+                                interaction.reply({ content: `You don't have any **${type}** in your inventory.`, ephemeral: true });
+                                return;
+                            }
+                            if (inventoryA[type] < amount) {
+                                interaction.reply({ content: `You don't have enough **${type}** in your inventory.`, ephemeral: true });
+                                return;
+                            }
+
+                            this.removeInventoryItems(interaction.user.id, type, amount); // Remove from sender's inventory
+                            this.addInventoryItems(user.id, type, amount); // Add to receiver's inventory
+
+                            interaction.reply({ content: `You have successfully transferred **${amount}** **${type}** to ${user}.`, ephemeral: false });
+                        } else if (interaction.options.getSubcommand() === 'types') {
+                            let types = this.getItemTypesCanManufacture(interaction.user.id);
+                            if (types.length === 0) {
+                                interaction.reply({ content: `You can't manufacture any items at the moment. You can either have someone add you as a manufacturer (/item addmanufacturer) or you can create a new type (/item createtype).`, ephemeral: true })
+                                return;
+                            }
+                            let stringTypes = types.map(type => `**${type}**`).join(', ');
+                            interaction.reply({ content: `You can manufacture the following types: ${stringTypes}.`, ephemeral: true });
+                        } else if (interaction.options.getSubcommand() === 'alltypes') {
+                            let types = this.getAllItemTypes();
+                            if (types.length === 0) {
+                                interaction.reply({ content: `None exist right now. You can create a new type (/item createtype).`, ephemeral: true })
+                                return;
+                            }
+                            let stringTypes = types.map(type => `**${type}**`).join(', ');
+                            interaction.reply({ content: `These types exist: ${stringTypes}.`, ephemeral: true });
+                        } else if (interaction.options.getSubcommand() === 'type') {
+                            let type = interaction.options.getString('type', true);
+                            let item = this.getItemType(type);
+                            if (!item) {
+                                interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
+                            } else {
+                                interaction.reply({ content: `## ${item.emoji} ${item.name}\nThis item type is owned by ${item.owner}.`, ephemeral: true });
+                            }
+                        } else if (interaction.options.getSubcommand() === 'destroy') {
+                            let type = interaction.options.getString('type', true);
+                            let amount = interaction.options.getInteger('amount', false) || 1;
+                            let inventory = this.getInventory(interaction.user.id);
+                            if (!inventory[type]) {
+                                interaction.reply({ content: `You do not have any **${type}**.`, ephemeral: true });
+                            }
+                            else if (inventory[type] < amount) {
+                                amount = inventory[type];
+                            }
+                            this.removeInventoryItems(interaction.user.id, type, amount);
+                            interaction.reply({ content: `You have destroyed **${amount}** ${type} that were in your inventory.`, ephemeral: false });
+                        } else if (interaction.options.getSubcommand() === 'manufacturers') {
+                            let type = interaction.options.getString('type', true);
+                            let item = this.getItemType(type);
+                            if (!item) {
+                                interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
+                            } else {
+                                let manufacturers = this.getManufacturers(type);
+                                interaction.reply({ content: `Manufacturers of **${type}**: ${manufacturers.join(', ')}`, ephemeral: true });
+                            }
+                        } else if (interaction.options.getSubcommand() === 'addmanufacturer') {
+                            let type = interaction.options.getString('type', true);
+                            let user = interaction.options.getUser('user', true);
+
+                            // first make sure exists
+                            let item = this.getItemType(type);
+                            if (!item) {
+                                interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
+                                return;
+                            }
+
+                            // now make sure they are the owner of the org
+                            let org = this.orgs.getOrg(item.owner);
+                            if (!org) {
+                                interaction.reply({ content: `Something fishy is happening. I can feel it`, ephemeral: true });
+                                return;
+                            }
+
+                            if (org.owner !== interaction.user.id) {
+                                interaction.reply({ content: `You are not the owner of the org that owns the item type`, ephemeral: true });
+                                return;
+                            }
+
+                            let manufacturers = this.getManufacturers(type);
+                            if (!manufacturers.includes(user.id)) {
+                                this.addManufacturer(user.id, type);
+                                interaction.reply({ content: `Added **${user.username}** as a manufacturer of **${type}**.`, ephemeral: false });
+                            } else {
+                                interaction.reply({ content: `**${user.username}** is already a manufacturer of **${type}**.`, ephemeral: true });
+                            }
+                        } else if (interaction.options.getSubcommand() === 'removemanufacturer') {
+                            let type = interaction.options.getString('type', true);
+                            let user = interaction.options.getUser('user', true);
+
+                            // first make sure exists
+                            let item = this.getItemType(type);
+                            if (!item) {
+                                interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
+                                return;
+                            }
+
+                            // now make sure they are the owner of the org
+                            let org = this.orgs.getOrg(item.owner);
+                            if (!org) {
+                                interaction.reply({ content: `Something fishy is happening. I can feel it`, ephemeral: true });
+                                return;
+                            }
+
+                            if (org.owner !== interaction.user.id) {
+                                interaction.reply({ content: `You are not the owner of the org that owns the item type`, ephemeral: true });
+                                return;
+                            }
+
+                            let manufacturers = this.getManufacturers(type);
+                            if (manufacturers.includes(user.id)) {
+                                this.removeManufacturer(user.id, type);
+                                interaction.reply({ content: `Removed **${user.username}** as a manufacturer of **${type}**.`, ephemeral: false });
+                            } else {
+                                interaction.reply({ content: `**${user.username}** is not a manufacturer of **${type}**.`, ephemeral: true });
+                            }
+                        } else if (interaction.options.getSubcommand() === 'transfertype') {
+                            const type = interaction.options.getString('type', true);
+                            // first make sure exists
+                            let item = this.getItemType(type);
+                            if (!item) {
+                                interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
+                                return;
+                            }
+
+                            // now make sure they are the owner of the org
+                            let org = this.orgs.getOrg(item.owner);
+                            if (!org) {
+                                interaction.reply({ content: `Something fishy is happening. I can feel it`, ephemeral: true });
+                                return;
+                            }
+
+                            if (org.owner !== interaction.user.id) {
+                                interaction.reply({ content: `You are not the owner of the org that owns the item type`, ephemeral: true });
+                                return;
+                            }
+
+                            let newOrg = this.orgs.getOrg(interaction.options.getString('org', true));
+                            if (!newOrg) {
+                                interaction.reply({ content: `The org you are trying to transfer the item type to does not exist.`, ephemeral: true });
+                                return;
+                            }
+
+                            this.changeItemTypeOwner(type, interaction.options.getString('org', true));
+                            interaction.reply({ content: `The item type has been transferred to ${newOrg.org_id}`, ephemeral: true });
+                        }
+
+                    }
+                } else if (interaction.isUserContextMenuCommand()) {
+                    if (interaction.commandName === 'Pay User') {
+                        const modal = new ModalBuilder()
+                            .setCustomId('pay_' + interaction.targetUser.id)
+                            .setTitle('Pay User');
+
+                        const amountInput = new TextInputBuilder()
+                            .setCustomId('amount')
+                            .setLabel("Amount to pay")
+                            .setStyle(TextInputStyle.Short);
+
+                        const actionRow = new ActionRowBuilder<ModalActionRowComponentBuilder>().addComponents(amountInput);
+
+                        modal.addComponents(actionRow);
+
+                        await interaction.showModal(modal);
+                    }
+                } else if (interaction.isModalSubmit()) {
+                    if (interaction.customId.startsWith('pay_')) {
+                        const amount = Math.abs(parseInt(interaction.fields.getTextInputValue('amount')));
+                        if (isNaN(amount) || amount < 1) {
+                            await interaction.reply({
+                                content: 'Must be a valid number!',
+                                ephemeral: true,
+                            });
+                        } else {
+                            const userID = interaction.customId.replace('pay_', '');
+                            const user = await client.users.fetch(userID);
+                            if (user) {
+                                this.pay(interaction.user, user, amount, interaction);
+                            } else {
+                                await interaction.reply({
+                                    content: 'Some issue is happen! Help me!',
+                                    ephemeral: true,
+                                });
+                            }
                         }
                     }
                 }
+            } catch (e) {
+                interaction.reply({
+                    content: 'Some issue is happen! Help me! ' + e.toString(),
+                    ephemeral: true,
+                });
+                console.error(e);
             }
         });
     }
