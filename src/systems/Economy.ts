@@ -32,6 +32,25 @@ export default class Economy {
         db.run("create table if not exists manufacturers (user text, type text);");
         // inventories table has a row for each player inventory, with just json
         db.run("create table if not exists inventories (user_id text, items text);");
+        db.run("create table if not exists claimed_starter (user_id text);");
+
+        let claimedStarter = (user_id: string): boolean => {
+            const stmt = this.db.prepare("select * from claimed_starter where user_id = ?;");
+            const row = stmt.get(user_id);
+            if (row) {
+                return true;
+            } else {
+                return false;
+            }
+        };
+
+        let claimStarter = (user_id: string): void => {
+            const stmt = this.db.prepare("insert into claimed_starter (user_id) values (?);");
+            stmt.run(user_id);
+
+            this.changeMoney(user_id, 50000);
+            this.changeMoney('1183134058415394846', -50000);
+        };
 
         //this.changeMoney('742396813826457750', 980000);
 
@@ -46,7 +65,15 @@ export default class Economy {
             }
 
             if (interaction.isChatInputCommand()) {
-                if (interaction.commandName === 'pay') {
+                if (interaction.commandName === 'claim') {
+                    if (!claimedStarter(interaction.user.id)) {
+                        claimStarter(interaction.user.id);
+                        await interaction.reply({ content: `You have claimed your starter ${ECONOMY_NAME_PLURAL}! You now have **${stringifyMoney(this.getMoney(interaction.user.id))}**.`, ephemeral: false });
+                    } else {
+                        await interaction.reply({ content: `You have already claimed your starter ${ECONOMY_NAME_PLURAL}.`, ephemeral: true });
+                    }
+                }
+                else if (interaction.commandName === 'pay') {
                     const amount = Math.abs(interaction.options.getInteger('amount', true));
 
                     if (interaction.options.getSubcommand() === 'user') {
