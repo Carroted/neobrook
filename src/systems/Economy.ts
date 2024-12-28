@@ -73,6 +73,13 @@ export default class Economy {
                         await interaction.reply({ content: `You have already claimed your starter ${ECONOMY_NAME_PLURAL}.`, ephemeral: true });
                     }
                 }
+                else if (interaction.commandName === 'admin') {
+                    if (interaction.options.getSubcommand() === 'deletetype') {
+                        const type = interaction.options.getString('type', true);
+                        this.db.run('delete from item_types where type=?', [type]);
+                        await interaction.reply({ content: `Deleted item type ${type}.`, ephemeral: false });
+                    }
+                }
                 else if (interaction.commandName === 'pay') {
                     const amount = Math.abs(interaction.options.getInteger('amount', true));
 
@@ -197,14 +204,15 @@ export default class Economy {
                     interaction.reply({ content: `The sum of all ${ECONOMY_NAME_PLURAL} is **${stringifyMoney(this.sum())}**.`, ephemeral: true });
                 } else if (interaction.commandName === 'item') {
                     if (interaction.options.getSubcommand() === 'createtype') {
-                        let existing = this.getItemType(interaction.options.getString('id', true));
+                        let id = interaction.options.getString('id', true).toLowerCase().trim();
+                        let existing = this.getItemType(id);
 
                         if (existing) {
-                            return interaction.reply({ content: `Item type with ID **${interaction.options.getString('id', true)}** already exists.`, ephemeral: true });
+                            return interaction.reply({ content: `Item type with ID **${id}** already exists.`, ephemeral: true });
                         } else {
-                            this.addItemType(interaction.options.getString('id', true), interaction.options.getString('name', true), interaction.options.getString('emoji', false) ?? '🪨', [interaction.user.id], interaction.options.getString('org', true));
+                            this.addItemType(id, interaction.options.getString('name', true).trim(), (interaction.options.getString('emoji', false) ?? '🪨').trim(), [interaction.user.id], interaction.options.getString('org', true).trim().toLowerCase());
 
-                            interaction.reply({ content: `Item type **${interaction.options.getString('name', true)}** created with ID **${interaction.options.getString('id', true)}**.`, ephemeral: false });
+                            interaction.reply({ content: `Item type ${(interaction.options.getString('emoji', false) ?? '🪨').trim()} **${interaction.options.getString('name', true).trim()}** created with ID **${id}**.`, ephemeral: false });
                         }
 
                     } else if (interaction.options.getSubcommand() === 'create') {
