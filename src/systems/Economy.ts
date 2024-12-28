@@ -33,7 +33,7 @@ export default class Economy {
         // inventories table has a row for each player inventory, with just json
         db.run("create table if not exists inventories (user_id text, items text);");
 
-        this.changeMoney('742396813826457750', 10000);
+        //this.changeMoney('742396813826457750', 980000);
 
         this.client.on(Events.InteractionCreate, async (interaction) => {
             if (interaction.isAutocomplete()) {
