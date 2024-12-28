@@ -76,6 +76,10 @@ const command: SlashCommand = {
                 .setDescription('List the item types you are able to create.'))
         .addSubcommand(subcommand =>
             subcommand
+                .setName('alltypes')
+                .setDescription('List all item types, even the ones you can\'t create.'))
+        .addSubcommand(subcommand =>
+            subcommand
                 .setName('destroy')
                 .setDescription('Incinerate item from your inventory. Mk VI Heavy Duty Basic Mkevx G03 Single-use.')
                 .addStringOption(option =>

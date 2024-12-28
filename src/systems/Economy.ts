@@ -204,7 +204,7 @@ export default class Economy {
                         } else {
                             this.addItemType(interaction.options.getString('id', true), interaction.options.getString('name', true), interaction.options.getString('emoji', false) ?? '🪨', [interaction.user.id], interaction.options.getString('org', true));
 
-                            interaction.reply({ content: `Item type **${interaction.options.getString('name', true)}** created with ID **${interaction.options.getString('id', true)}**.`, ephemeral: true });
+                            interaction.reply({ content: `Item type **${interaction.options.getString('name', true)}** created with ID **${interaction.options.getString('id', true)}**.`, ephemeral: false });
                         }
 
                     } else if (interaction.options.getSubcommand() === 'create') {
@@ -215,11 +215,11 @@ export default class Economy {
                         } else {
                             let manufacturers = this.getManufacturers(type);
                             if (!manufacturers.includes(interaction.user.id)) {
-                                interaction.reply({ content: `You are not a manufacturer of the type **${type}**. You'd need to ask a manufacturer to make you be one too.`, ephemeral: true });
+                                interaction.reply({ content: `You are not a manufacturer of the type **${type}**. You'd need to ask a manufacturer to make you be one too.`, ephemeral: false });
                                 return;
                             }
                             this.addInventoryItems(interaction.user.id, type, interaction.options.getInteger('amount', true));
-                            interaction.reply({ content: `Added **${interaction.options.getInteger('amount', true)}** of item type **${type}** to your inventory.`, ephemeral: true });
+                            interaction.reply({ content: `Added **${interaction.options.getInteger('amount', true)}** of item type **${type}** to your inventory.`, ephemeral: false });
                         }
 
                     } else if (interaction.options.getSubcommand() === 'give') {
@@ -251,6 +251,14 @@ export default class Economy {
                         }
                         let stringTypes = types.map(type => `**${type}**`).join(', ');
                         interaction.reply({ content: `You can manufacture the following types: ${stringTypes}.`, ephemeral: true });
+                    } else if (interaction.options.getSubcommand() === 'alltypes') {
+                        let types = this.getAllItemTypes();
+                        if (types.length === 0) {
+                            interaction.reply({ content: `None exist right now. You can create a new type (/item createtype).`, ephemeral: true })
+                            return;
+                        }
+                        let stringTypes = types.map(type => `**${type}**`).join(', ');
+                        interaction.reply({ content: `These types exist: ${stringTypes}.`, ephemeral: true });
                     } else if (interaction.options.getSubcommand() === 'type') {
                         let type = interaction.options.getString('type', true);
                         let item = this.getItemType(type);
@@ -270,7 +278,7 @@ export default class Economy {
                             amount = inventory[type];
                         }
                         this.removeInventoryItems(interaction.user.id, type, amount);
-                        interaction.reply({ content: `You have destroyed **${amount}** ${type} that were in your inventory.`, ephemeral: true });
+                        interaction.reply({ content: `You have destroyed **${amount}** ${type} that were in your inventory.`, ephemeral: false });
                     } else if (interaction.options.getSubcommand() === 'manufacturers') {
                         let type = interaction.options.getString('type', true);
                         let item = this.getItemType(type);
@@ -306,7 +314,7 @@ export default class Economy {
                         let manufacturers = this.getManufacturers(type);
                         if (!manufacturers.includes(user.id)) {
                             this.addManufacturer(user.id, type);
-                            interaction.reply({ content: `Added **${user.username}** as a manufacturer of **${type}**.`, ephemeral: true });
+                            interaction.reply({ content: `Added **${user.username}** as a manufacturer of **${type}**.`, ephemeral: false });
                         } else {
                             interaction.reply({ content: `**${user.username}** is already a manufacturer of **${type}**.`, ephemeral: true });
                         }
@@ -336,7 +344,7 @@ export default class Economy {
                         let manufacturers = this.getManufacturers(type);
                         if (manufacturers.includes(user.id)) {
                             this.removeManufacturer(user.id, type);
-                            interaction.reply({ content: `Removed **${user.username}** as a manufacturer of **${type}**.`, ephemeral: true });
+                            interaction.reply({ content: `Removed **${user.username}** as a manufacturer of **${type}**.`, ephemeral: false });
                         } else {
                             interaction.reply({ content: `**${user.username}** is not a manufacturer of **${type}**.`, ephemeral: true });
                         }
