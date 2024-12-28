@@ -30,11 +30,12 @@ export default class Orgs {
 
         this.client.on(Events.InteractionCreate, async (interaction) => {
             if (interaction.isAutocomplete()) {
-                const focusedValue = interaction.options.getFocused().toLowerCase();
-
-                const orgs = this.getOrgs();
-                let matching = orgs.filter((org) => org.org_id.includes(focusedValue));
-                await interaction.respond(matching.map((choice) => { return { name: choice.org_id, value: choice.org_id }; }));
+                const focusedOption = interaction.options.getFocused(true);
+                if (focusedOption.name !== 'type') {
+                    const orgs = this.getOrgs();
+                    let matching = orgs.filter((org) => org.org_id.includes(focusedOption.value.toLowerCase()));
+                    await interaction.respond(matching.map((choice) => { return { name: choice.org_id, value: choice.org_id }; }));
+                }
             } else if (interaction.isButton()) {
                 if (interaction.customId === 'reject_invite') {
                     let result = this.rejectOrgInvite(interaction.message.id, interaction.user);
