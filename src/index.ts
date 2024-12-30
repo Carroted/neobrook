@@ -56,10 +56,11 @@ const client = new Client({
 const rep = new Reputation(db, client);
 const wizardHelper = new WizardHelper(client);
 const orgs = new Orgs(db, client, wizardHelper);
-const economy = new Economy(db, orgs, client);
+const economy = new Economy(db, orgs, client, wizardHelper);
 orgs.economy = economy;
 const hexColorPreview = new HexColorPreview();
 const beatsRock = new BeatsRock(client);
+const jobs = new Jobs(client);
 const shell = new Shell();
 
 const rest = new REST({ version: '9' }).setToken(process.env.TOKEN!);
@@ -70,6 +71,7 @@ const commands = new Collection<string, SlashCommand | UserContextMenuCommand>()
 // Dynamically import all commands
 import fs from 'fs';
 import path from 'path';
+import Jobs from './systems/Jobs';
 
 const slashCommandFiles = fs.readdirSync(path.join(__dirname, 'commands', 'slash')).filter(file => file.endsWith('.ts'));
 
@@ -107,8 +109,6 @@ client.once(Events.ClientReady, async () => {
 
 client.on(Events.MessageCreate, async message => {
     try {
-        if (message.author.id === client.user!.id) return;
-
         if (message.content.startsWith(client.user!.id + '!api ')) {
             let parts = message.content.split(' ');
 
@@ -389,7 +389,7 @@ client.on(Events.MessageCreate, async message => {
                             return;
                         }
 
-                        let paymentInfo = await economy.pay(userObject, message.author, amount, channelObject as TextChannel);
+                        let paymentInfo = await economy.pay(message.author, userObject, amount, channelObject as TextChannel);
 
                         if (paymentInfo) {
                             // send message json
@@ -405,12 +405,16 @@ client.on(Events.MessageCreate, async message => {
             }
         }
 
+        if (message.author.id === client.user!.id) return;
+
+        wizardHelper.message(message);
+
         if (!message.guild || (message.guild.id !== '1224881201379016825')) return;
 
         hexColorPreview.sendColorPreviews(message);
         beatsRock.doGames(message);
+        //jobs.doJobs(message);
         shell.runShell(message);
-        wizardHelper.message(message);
     } catch (e) {
         console.log(e);
         message.channel.send('<:error:1224892997749964892>');

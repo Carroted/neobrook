@@ -34,6 +34,8 @@ export default class Orgs {
                 if (focusedOption.name !== 'type') {
                     const orgs = this.getOrgs();
                     let matching = orgs.filter((org) => org.org_id.includes(focusedOption.value.toLowerCase()));
+                    // filter to at most 25
+                    matching = matching.slice(0, 25);
                     await interaction.respond(matching.map((choice) => { return { name: choice.org_id, value: choice.org_id }; }));
                 }
             } else if (interaction.isButton()) {

@@ -72,6 +72,59 @@ const command: SlashCommand = {
                         .setRequired(false)))
         .addSubcommand(subcommand =>
             subcommand
+                .setName('use')
+                .setDescription('Use an item. If the item has a use, it will be used, and otherwise, nothing happens.')
+                .addStringOption(option =>
+                    option
+                        .setName('type')
+                        .setDescription('Type of the item.')
+                        .setRequired(true).setAutocomplete(true))
+                .addIntegerOption(option =>
+                    option
+                        .setName('amount')
+                        .setDescription('Amount of items to use.')
+                        .setMinValue(1)
+                        .setMaxValue(1000)
+                        .setRequired(false)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('setuse')
+                .setDescription('Set what `/item use` does for a specific item type you own.')
+                .addStringOption(option =>
+                    option
+                        .setName('type')
+                        .setDescription('Type of the item.')
+                        .setRequired(true).setAutocomplete(true)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('setemoji')
+                .setDescription('Change the emoji of an item type you own.')
+                .addStringOption(option =>
+                    option
+                        .setName('type')
+                        .setDescription('Type of the item.')
+                        .setRequired(true).setAutocomplete(true))
+                .addStringOption(option =>
+                    option
+                        .setName('emoji')
+                        .setDescription('New emoji for the item type.')
+                        .setRequired(true)))
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('setname')
+                .setDescription('Change the name of an item type you own.')
+                .addStringOption(option =>
+                    option
+                        .setName('type')
+                        .setDescription('Type of the item.')
+                        .setRequired(true).setAutocomplete(true))
+                .addStringOption(option =>
+                    option
+                        .setName('name')
+                        .setDescription('New name for the item type.')
+                        .setRequired(true)))
+        .addSubcommand(subcommand =>
+            subcommand
                 .setName('types')
                 .setDescription('List the item types you are able to create.'))
         .addSubcommand(subcommand =>

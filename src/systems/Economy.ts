@@ -1,9 +1,10 @@
-import { ActionRowBuilder, ButtonInteraction, ChatInputCommandInteraction, Client, EmbedBuilder, Events, Message, ModalBuilder, ModalSubmitInteraction, TextChannel, TextInputBuilder, TextInputStyle, User, UserContextMenuCommandInteraction, type APIEmbed, type APIEmbedField, type Interaction, type MessageCreateOptions, type ModalActionRowComponentBuilder, type OmitPartialGroupDMChannel } from "discord.js";
+import { ActionRowBuilder, ButtonInteraction, ChatInputCommandInteraction, Client, EmbedBuilder, Events, Message, ModalBuilder, ModalSubmitInteraction, PermissionsBitField, TextChannel, TextInputBuilder, TextInputStyle, User, UserContextMenuCommandInteraction, type APIEmbed, type APIEmbedField, type Interaction, type MessageCreateOptions, type ModalActionRowComponentBuilder, type OmitPartialGroupDMChannel } from "discord.js";
 import Database from "bun:sqlite";
 import type Orgs from "./Orgs";
 import type { Org } from "./Orgs";
 import { ECONOMY_NAME_PLURAL, ECONOMY_PREFIX, ECONOMY_SUFFIX_PLURAL, ECONOMY_SUFFIX_SINGULAR } from "../constants";
 import numberWithCommas from "../numberWithCommas";
+import type WizardHelper from "./WizardHelper";
 
 /** Stringify money using specified prefix and suffix, as well as number formatting. */
 
@@ -18,11 +19,13 @@ export default class Economy {
     db: Database;
     orgs: Orgs;
     client: Client;
+    wizardHelper: WizardHelper;
 
-    constructor(db: Database, orgs: Orgs, client: Client) {
+    constructor(db: Database, orgs: Orgs, client: Client, wizardHelper: WizardHelper) {
         this.db = db;
         this.orgs = orgs;
         this.client = client;
+        this.wizardHelper = wizardHelper;
 
         db.run("create table if not exists economy (user_id text, money integer);");
         db.run("create table if not exists transactions (transaction_id text, sender text, recipient text, amount_sent integer, amount_received integer, date integer);");
@@ -34,6 +37,9 @@ export default class Economy {
         db.run("create table if not exists inventories (user_id text, items text);");
         db.run("create table if not exists claimed_starter (user_id text);");
 
+        // items can have Uses. discard is whether or not to destroy the item after use
+        db.run("create table if not exists item_uses (item_type text, discard integer, data text);");
+
         let claimedStarter = (user_id: string): boolean => {
             const stmt = this.db.prepare("select * from claimed_starter where user_id = ?;");
             const row = stmt.get(user_id);
@@ -44,12 +50,52 @@ export default class Economy {
             }
         };
 
+        interface ItemUse {
+            discard: boolean;
+            data: {
+                type: "role" | "http" | "command" | "message", // message will just do nothing other than the message. http returns response as message override
+                value: string, // this is for example role ID, http url, or text command. we will replace $USER with user id of one who used it and $CHANNEL with channel id they used it in etc and $AMOUNT
+                message: string,
+                ephemeral: boolean, // if true, message will be ephemeral
+                place: string, // for role this is server ID, for http and message this has nothing, for command this is channel ID to run it.
+            }
+        }
+
         let claimStarter = (user_id: string): void => {
             const stmt = this.db.prepare("insert into claimed_starter (user_id) values (?);");
             stmt.run(user_id);
 
             this.changeMoney(user_id, 50000);
             this.changeMoney('1183134058415394846', -50000);
+        };
+
+        let getItemUse = (item_type: string): ItemUse | null => {
+            const stmt = this.db.prepare("select * from item_uses where item_type = ?;");
+            const row = stmt.get(item_type) as any;
+            if (row) {
+                return { discard: row.discard === 1, data: JSON.parse(row.data) };
+            } else {
+                return null;
+            }
+        };
+
+        let setItemUse = (item_type: string, use: ItemUse | null): void => {
+            if (!use) {
+                const stmt = this.db.prepare("delete from item_uses where item_type = ?;");
+                stmt.run(item_type);
+            } else {
+                let existing = getItemUse(item_type);
+
+                if (existing) {
+                    // update, set discard and data
+                    const stmt = this.db.prepare("update item_uses set discard = ?, data = ? where item_type = ?");
+                    stmt.run(use.discard ? 1 : 0, JSON.stringify(use.data), item_type);
+                } else {
+                    // insert new row
+                    const stmt = this.db.prepare("insert into item_uses (item_type, discard, data) values (?, ?, ?)");
+                    stmt.run(item_type, use.discard ? 1 : 0, JSON.stringify(use.data));
+                }
+            }
         };
 
         //this.changeMoney('742396813826457750', 980000);
@@ -61,6 +107,8 @@ export default class Economy {
                     if (focusedOption.name === 'type' && interaction.commandName === 'item') {
                         const types = this.getAllItemTypes();
                         let matching = types.filter((type) => type.includes(focusedOption.value.toLowerCase()));
+                        // filter to at most 25
+                        matching = matching.slice(0, 25);
                         await interaction.respond(matching.map((choice) => { return { name: choice, value: choice }; }));
                     }
                 }
@@ -205,7 +253,8 @@ export default class Economy {
                         interaction.reply({ content: `The sum of all ${ECONOMY_NAME_PLURAL} is **${stringifyMoney(this.sum())}**.`, ephemeral: true });
                     } else if (interaction.commandName === 'item') {
                         if (interaction.options.getSubcommand() === 'createtype') {
-                            let id = interaction.options.getString('id', true).toLowerCase().trim();
+                            let id = interaction.options.getString('id', true).toLowerCase().trim().replaceAll('@', '');
+
                             let existing = this.getItemType(id);
 
                             if (existing) {
@@ -240,11 +289,17 @@ export default class Economy {
                             let inventoryB = this.getInventory(user.id);
 
                             if (!inventoryA[type]) {
-                                interaction.reply({ content: `You don't have any **${type}** in your inventory.`, ephemeral: true });
+                                interaction.reply({
+                                    content: `You don't have any **${type}** in your inventory.`, ephemeral: true,
+                                    allowedMentions: { parse: [] },
+                                });
                                 return;
                             }
                             if (inventoryA[type] < amount) {
-                                interaction.reply({ content: `You don't have enough **${type}** in your inventory.`, ephemeral: true });
+                                interaction.reply({
+                                    content: `You don't have enough **${type}** in your inventory.`, ephemeral: true,
+                                    allowedMentions: { parse: [] },
+                                });
                                 return;
                             }
 
@@ -252,6 +307,589 @@ export default class Economy {
                             this.addInventoryItems(user.id, type, amount); // Add to receiver's inventory
 
                             interaction.reply({ content: `You have successfully transferred **${amount}** **${type}** to ${user}.`, ephemeral: false });
+                        } else if (interaction.options.getSubcommand() === 'use') {
+                            let amount = interaction.options.getInteger('amount', false) || 1;
+                            let type = interaction.options.getString('type', true);
+
+                            let inventory = this.getInventory(interaction.user.id);
+
+                            if (!inventory[type]) {
+                                interaction.reply({
+                                    content: `You don't have any **${type}** in your inventory.`, ephemeral: true,
+                                    allowedMentions: { parse: [] },
+                                });
+                                return;
+                            }
+                            if (inventory[type] < amount) {
+                                amount = inventory[type];
+                            }
+
+                            let use = getItemUse(type);
+                            if (!use) {
+                                interaction.reply({
+                                    content: `The item **${type}** cannot be used.`, ephemeral: true,
+                                    allowedMentions: { parse: [] },
+                                });
+                                return;
+                            }
+
+                            let formattedValue = use.data.value.replaceAll('$USER', interaction.user.id).replaceAll('$AMOUNT', amount.toString()).replaceAll('$CHANNEL', interaction.channelId);
+                            let formattedMessage = use.data.message.replaceAll('$USER', interaction.user.id).replaceAll('$AMOUNT', amount.toString()).replaceAll('$CHANNEL', interaction.channelId);
+
+                            if (use.data.type === 'message') {
+                                if (use.discard) {
+                                    this.removeInventoryItems(interaction.user.id, type, amount); // Remove from sender's inventory
+                                }
+                                interaction.reply({
+                                    content: `You used **${amount}x ${type}**.\n\n> ${(formattedValue + formattedMessage).split('\n').join('\n> ')}`, ephemeral: use.data.ephemeral,
+                                    allowedMentions: { parse: [] },
+                                });
+                            } else if (use.data.type === 'command') {
+                                // use.data.place is channel id
+                                let channel = await this.client.channels.fetch(use.data.place);
+                                if (!channel || !channel.isSendable()) {
+                                    interaction.reply({
+                                        content: `Item use failed. It is trying to run a command in channel of ID ${use.data.place}, but that isnt a channel i can access (or it isnt a text channel).\n\nTell item owner to change the use of the item to fix this.`, ephemeral: false,
+                                        allowedMentions: { parse: [] },
+                                    });
+                                    return; // dont discard
+                                }
+
+                                if (formattedValue.trim().startsWith('1183134058415394846!api pay ')) {
+                                    interaction.reply({
+                                        content: `Item use failed. It is trying to make me pay someone. This is Illegal.\n\nTell item owner to change the use of the item to fix this.`, ephemeral: false,
+                                        allowedMentions: { parse: [] },
+                                    });
+                                    return;
+                                }
+
+                                if (use.discard) {
+                                    this.removeInventoryItems(interaction.user.id, type, amount); // Remove from sender's inventory
+                                }
+
+                                // use.data.value is the thing to send
+                                await channel.send({ content: formattedValue, allowedMentions: { parse: [] } }); // Send the message to the channel
+
+                                // reply to user
+                                interaction.reply({ content: `You used **${amount}x ${type}**.\n\n> ${formattedMessage.split('\n').join('\n> ')}`, ephemeral: use.data.ephemeral });
+                            } else if (use.data.type === 'role') {
+                                // use.data.value is the role id to give. place is the server id
+                                let guild = await client.guilds.fetch(use.data.place);
+                                if (!guild) {
+                                    interaction.reply({
+                                        content: `Item use failed. It is trying to give a role in server of ID ${use.data.place}, but that isnt a server i can access.\n\nTell item owner to change the use of the item to fix this.`, ephemeral: false,
+                                        allowedMentions: { parse: [] },
+                                    });
+                                    return;
+                                }
+
+                                let role = await guild.roles.fetch(use.data.value);
+                                if (!role) {
+                                    interaction.reply({
+                                        content: `Item use failed. It is trying to give a role of ID ${use.data.value}, but that isn't a role in the server.\n\nTell item owner to change the use of the item to fix this.`, ephemeral: false,
+                                        allowedMentions: { parse: [] },
+                                    });
+                                    return;
+                                }
+
+                                let member = await guild.members.fetch(interaction.user.id);
+                                if (!member) {
+                                    interaction.reply({ content: `Item use failed. It is trying to give a role to you, but you either aren't a member in the server or I don't have the perms for this.`, ephemeral: false });
+                                    return;
+                                }
+                                if (member.roles.cache.has(role.id)) {
+                                    interaction.reply({ content: `Item use failed. You already have the role this would give you.`, ephemeral: false });
+                                    return;
+                                }
+
+                                member.roles.add(role.id).catch((err) => {
+                                    interaction.reply({ content: `Item use failed. It is trying to give a role to you, but I don't have the perms for this.`, ephemeral: false });
+                                    console.error(err);
+                                }).then(() => {
+                                    if (use.discard) {
+                                        this.removeInventoryItems(interaction.user.id, type, amount); // Remove from sender's inventory
+                                    }
+
+                                    interaction.reply({
+                                        content: `You used **${amount}x ${type}**.\n\n> ${(formattedMessage).split('\n').join('\n> ')}\n\nYou have been given <@&${role.id}>.`,
+                                        ephemeral: use.data.ephemeral,
+                                        allowedMentions: { parse: [] },
+                                    });
+                                });
+                            } else if (use.data.type === 'http') {
+                                // value is the url. no body or anything, they can use query params like ?amount=$AMOUNT and the above will format it for that
+                                if (use.discard) {
+                                    this.removeInventoryItems(interaction.user.id, type, amount); // Remove from sender's inventory
+                                }
+
+                                // result of the request (as text, not json) will be appended to the message
+
+                                await fetch(use.data.value, { method: 'GET' }).then(async res => {
+                                    const text = await res.text();
+                                    await interaction.reply({
+                                        content: `You used **${amount}x ${type}**.\n\n> ${(formattedMessage + text).split('\n').join('\n> ')}`,
+                                        ephemeral: use.data.ephemeral,
+                                        allowedMentions: { parse: [] },
+                                    });
+                                });
+                            }
+                        } else if (interaction.options.getSubcommand() === 'setemoji') {
+                            let type = interaction.options.getString('type', true);
+
+                            // first make sure exists
+                            let item = this.getItemType(type);
+                            if (!item) {
+                                interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
+                                return;
+                            }
+
+                            // now make sure they are the owner of the org
+                            let org = this.orgs.getOrg(item.owner);
+                            if (!org) {
+                                interaction.reply({ content: `Something fishy is happening. I can feel it`, ephemeral: true });
+                                return;
+                            }
+
+                            if (org.owner !== interaction.user.id) {
+                                interaction.reply({ content: `You are not the owner of the org that owns the item type`, ephemeral: true });
+                                return;
+                            }
+
+                            // now we can set the emoji
+                            let emoji = interaction.options.getString('emoji', true);
+
+                            this.setItemEmoji(type, emoji.trim());
+                            interaction.reply(`The emoji for item type **${type}** has been set to ${emoji.trim()}.`);
+                        } else if (interaction.options.getSubcommand() === 'setname') {
+                            let type = interaction.options.getString('type', true);
+
+                            // first make sure exists
+                            let item = this.getItemType(type);
+                            if (!item) {
+                                interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
+                                return;
+                            }
+
+                            // now make sure they are the owner of the org
+                            let org = this.orgs.getOrg(item.owner);
+                            if (!org) {
+                                interaction.reply({ content: `Something fishy is happening. I can feel it`, ephemeral: true });
+                                return;
+                            }
+
+                            if (org.owner !== interaction.user.id) {
+                                interaction.reply({ content: `You are not the owner of the org that owns the item type`, ephemeral: true });
+                                return;
+                            }
+
+                            // now we can set the name
+                            let name = interaction.options.getString('name', true);
+
+                            this.setItemName(type, name.trim());
+                            interaction.reply(`The name for item type **${type}** has been set to ${name.trim()}.`);
+                        } else if (interaction.options.getSubcommand() === 'setuse') {
+                            if (!interaction.guildId) {
+                                await interaction.reply({
+                                    content: 'This command can only be used in a server.',
+                                    ephemeral: true,
+                                });
+                                return;
+                            }
+
+                            let type = interaction.options.getString('type', true);
+
+                            // first make sure exists
+                            let item = this.getItemType(type);
+                            if (!item) {
+                                interaction.reply({ content: `Item type **${type}** does not exist.`, ephemeral: true });
+                                return;
+                            }
+
+                            // now make sure they are the owner of the org
+                            let org = this.orgs.getOrg(item.owner);
+                            if (!org) {
+                                interaction.reply({ content: `Something fishy is happening. I can feel it`, ephemeral: true });
+                                return;
+                            }
+
+                            if (org.owner !== interaction.user.id) {
+                                interaction.reply({ content: `You are not the owner of the org that owns the item type`, ephemeral: true });
+                                return;
+                            }
+
+                            await interaction.reply({
+                                content: 'When `/item use` is ran, if there\'s a **Use** configured for the item, it will happen.\n\n4 types of item uses exist: `role`, `http`, `command`, and `message`.\n\n**role**: Assigns a role to the user who used the item.\n**http**: Sends an HTTP/HTTPS request to a URL.\n**command**: Sends a message to a specified channel. Intended to be used to run text commands.\n**message**: All item uses also send a Message to the user. But unlike the other types, this one **only** has a message, and doesn\'t do anything else.\n\nPlease specify the type of use you want to set for the item. (`role`, `http`, `command`, or `message`)\n\nYou can also say `none` to clear the item use.', ephemeral: false
+                            });
+
+                            let channel = interaction.channel as TextChannel;
+
+                            let response = (await this.wizardHelper.getResponse({
+                                channelID: channel.id,
+                                userID: interaction.user.id,
+                            })).content.trim().toLowerCase();
+
+                            if (response === 'none') {
+                                setItemUse(type, null);
+
+                                await channel.send('You have set the use of `' + type + '` to **nothing**.');
+                                return;
+                            } else if (response === 'role') {
+                                await channel.send(`What is the server ID where the role is?\n\n-# Consult [this Discord support page](<https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID>) if you don't know how to get IDs.`);
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (!response.match(/^\d+$/)) {
+                                    await channel.send(`Sorry, that isn't a valid server ID.\n\nAborting.`);
+                                    return;
+                                }
+
+                                if (response === '1224881201379016825' && interaction.user.id !== '742396813826457750') {
+                                    await channel.send(`Fuck you\nAborting.`);
+                                    return;
+                                }
+
+                                const guild = await this.client.guilds.fetch(response).catch(() => null);
+                                if (!guild) {
+                                    await channel.send(`Sorry, I couldn't find that server. I need to be in it, for this to work.\n\nAborting.`);
+                                    return;
+                                }
+
+                                let me = await guild.members.fetchMe().catch(() => null);
+
+                                if (!me) {
+                                    await channel.send(`Sorry, I couldn't fetch my own member info for that server.\n\nAborting.`);
+                                    return;
+                                }
+
+                                // make sure we have manage roles
+                                if (!me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+                                    await channel.send(`Sorry, I don't have permission to manage roles in that server.\n\nAborting.`);
+                                    return;
+                                }
+                                // make sure that user also has manage roles in that server
+                                let them = await guild.members.fetch(interaction.user.id).catch(() => null);
+                                if (!them) {
+                                    await channel.send(`Sorry, I couldn't fetch your member info for that server.\n\nAborting.`);
+                                    return;
+                                }
+                                if (!them.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+                                    await channel.send(`Sorry, you don't have permission to manage roles in that server.\n\nAborting.`);
+                                    return;
+                                }
+
+                                await channel.send(`Ok, now I need the Role ID. Send that here now.`);
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (!response.match(/^\d+$/)) {
+                                    await channel.send(`Sorry, that isn't a valid role ID.\n\nAborting.`);
+                                    return;
+                                }
+
+                                const role = guild.roles.cache.get(response);
+                                if (!role) {
+                                    await channel.send(`Sorry, I couldn't find that role in the server.\n\nAborting.`);
+                                    return;
+                                }
+
+                                // check our highest role
+                                const highestRole = me.roles.highest.position;
+                                if (highestRole <= role.position) {
+                                    await channel.send(`Sorry, I don't have permission to assign that role.\n\nAborting.`);
+                                    return;
+                                }
+                                const theirHighestRole = them.roles.highest.position;
+                                if (theirHighestRole <= role.position) {
+                                    await channel.send(`Sorry, you can't give someone a role higher than your own.\n\nAborting.`);
+                                    return;
+                                }
+
+                                await channel.send('Ok I think i have perms to add that. Now, what Message should be sent when the item is used?\n\nIt will be in a quote in the `/item use` message.\n\n### Advanced Features\nIf you put in "$USER", it will be replaced with the User ID of person who used message. $CHANNEL will be channel ID of where used, and $AMOUNT will be how many of the item they used at once. For example, if you say "Wow! You just used $AMOUNT of my thing!" itll say how many they used.');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim();
+
+                                if (response.length > 200) {
+                                    await channel.send('Your message is too long! Please keep it under 200 characters. Aborting indeed');
+                                    return;
+                                }
+
+                                let msg = response;
+
+                                await channel.send('Now, should the item be discarded when it is used? Like for example, should they still have it after using it, or the item is destroyed after use? Say just `yes` or `no`');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (response !== 'yes' && response !== 'no') {
+                                    await channel.send('Invalid response! Please respond with "yes" or "no". Aborting.');
+                                    return;
+                                }
+                                let discard = response === 'yes';
+
+                                await channel.send('Lastly, should the `/item use` message be Ephemeral? (yes/no)\n\nIf yes, others wont see it, only the user will');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (response !== 'yes' && response !== 'no') {
+                                    await channel.send('Invalid response! Please respond with "yes" or "no". Aborting.');
+                                    return;
+                                }
+
+                                let ephemeral = response === 'yes';
+
+                                setItemUse(type, {
+                                    discard,
+                                    data: {
+                                        type: 'role',
+                                        ephemeral,
+                                        message: msg,
+                                        place: guild.id,
+                                        value: role.id,
+                                    }
+                                });
+
+                                await channel.send(`Item use for ${type} has been set to ${discard ? 'discard' : 'keep'} the item and to add a role to the user. Congrats!`);
+                            } else if (response === 'http') {
+                                await channel.send('Please provide the URL of the HTTP request to be made when using this item.\n\nAll options should be included in the URL. For example, `https://example.com/api?user=$USER&amount=$AMOUNT`.\n\nThe text returned by the request will be included in the `/item use` message.\n\nThe following variables are available:\n- `$USER`: The user who is using the item.\n- `$AMOUNT`: The amount of items being used.\n- `$CHANNEL`: The channel where the item is being used.');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim();
+
+                                if (!response.startsWith('http://') && !response.startsWith('https://')) {
+                                    await channel.send('Needs start with either http:// or https://, aborting.');
+                                    return;
+                                }
+
+                                let url = response;
+
+                                await channel.send('Ok that looks real. Now, what Message should be sent when the item is used?\n\nIt will be in a quote in the `/item use` message.\n\nOnce more, the same vars like $USER and $AMOUNT and $CHANNEL work.\n\nThe returned text from the request is appended after the Message you will now specify. You can also say `none` to only us the request text.');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim();
+
+                                if (response.length > 200) {
+                                    await channel.send('Your message is too long! Please keep it under 200 characters. Aborting indeed');
+                                    return;
+                                }
+
+                                let msg = response;
+
+                                if (response.toLowerCase() === 'none') {
+                                    msg = '';
+                                }
+
+                                await channel.send('Now, should the item be discarded when it is used? Like for example, should they still have it after using it, or the item is destroyed after use? Say just `yes` or `no`');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (response !== 'yes' && response !== 'no') {
+                                    await channel.send('Invalid response! Please respond with "yes" or "no". Aborting.');
+                                    return;
+                                }
+                                let discard = response === 'yes';
+
+                                await channel.send('Lastly, should the `/item use` message be Ephemeral? (yes/no)\n\nIf yes, others wont see it, only the user will');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (response !== 'yes' && response !== 'no') {
+                                    await channel.send('Invalid response! Please respond with "yes" or "no". Aborting.');
+                                    return;
+                                }
+
+                                let ephemeral = response === 'yes';
+
+                                setItemUse(type, {
+                                    discard,
+                                    data: {
+                                        type: 'http',
+                                        ephemeral,
+                                        message: msg,
+                                        place: '',
+                                        value: url,
+                                    }
+                                });
+
+                                await channel.send({
+                                    content: `Item use for ${type} has been set to ${discard ? 'discard' : 'keep'} the item and to make a request to \`${url}\`. Congrats!`,
+                                    allowedMentions: { parse: [] },
+                                });
+
+                            } else if (response === 'command') {
+                                await channel.send('What message should I send (text command) when the item is used?\n\nThe following variables are available:\n- `$USER`: The user who is using the item.\n- `$AMOUNT`: The amount of items being used.\n- `$CHANNEL`: The channel where the item is being used.');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim();
+
+                                if (response.length > 2000) {
+                                    await channel.send('The message is too long. Please keep it under 2000 characters. Aborting.');
+                                    return;
+                                }
+
+                                let cmd = response;
+
+                                await channel.send('Whats the Channel ID where it should be sent? Needs to be a text channel I can access.\n\nDon\'t use $CHANNEL, it needs to be a specific one, where you have some other bot that will listen for it.');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (!response.match(/^\d+$/)) {
+                                    await channel.send(`Sorry, that isn't a valid channel ID.\n\nAborting.`);
+                                    return;
+                                }
+
+                                let channelID = response;
+                                let c = await this.client.channels.fetch(channelID).catch(() => null);;
+                                if (!c || !c.isTextBased() || !c.isSendable()) {
+                                    await channel.send(`Sorry, that isn't a valid text channel, or I cant access it.\n\nAborting.`);
+                                    return;
+                                }
+
+                                await channel.send('Ok that looks real. Now, what Message should be sent when the item is used?\n\nIt will be in a quote in the `/item use` message.\n\nOnce more, the same vars like $USER and $AMOUNT and $CHANNEL work.');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim();
+
+                                if (response.length > 200) {
+                                    await channel.send('Your message is too long! Please keep it under 200 characters. Aborting indeed');
+                                    return;
+                                }
+
+                                let msg = response;
+
+                                await channel.send('Now, should the item be discarded when it is used? Like for example, should they still have it after using it, or the item is destroyed after use? Say just `yes` or `no`');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (response !== 'yes' && response !== 'no') {
+                                    await channel.send('Invalid response! Please respond with "yes" or "no". Aborting.');
+                                    return;
+                                }
+                                let discard = response === 'yes';
+
+                                await channel.send('Lastly, should the `/item use` message be Ephemeral? (yes/no)\n\nIf yes, others wont see it, only the user will');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (response !== 'yes' && response !== 'no') {
+                                    await channel.send('Invalid response! Please respond with "yes" or "no". Aborting.');
+                                    return;
+                                }
+
+                                let ephemeral = response === 'yes';
+
+                                setItemUse(type, {
+                                    discard,
+                                    data: {
+                                        type: 'command',
+                                        ephemeral,
+                                        message: msg,
+                                        place: c.id,
+                                        value: cmd,
+                                    }
+                                });
+
+                                await channel.send({
+                                    content: `Item use for ${type} has been set to ${discard ? 'discard' : 'keep'} the item and to send \`${cmd}\` to <#${c.id}>. Congrats!`,
+                                    allowedMentions: { parse: [] },
+                                });
+                            } else if (response === 'message') {
+                                await channel.send('What Message should be sent when the item is used?\n\nIt will be in a quote in the `/item use` message.\n\n### Advanced Features\nIf you put in "$USER", it will be replaced with the User ID of person who used message. $CHANNEL will be channel ID of where used, and $AMOUNT will be how many of the item they used at once. For example, if you say "Wow! You just used $AMOUNT of my thing!" itll say how many they used.');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim();
+
+                                if (response.length > 200) {
+                                    await channel.send('Your message is too long! Please keep it under 200 characters. Aborting indeed');
+                                    return;
+                                }
+
+                                let msg = response;
+
+                                await channel.send('Now, should the item be discarded when it is used? Like for example, should they still have it after using it, or the item is destroyed after use? Say just `yes` or `no`');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (response !== 'yes' && response !== 'no') {
+                                    await channel.send('Invalid response! Please respond with "yes" or "no". Aborting.');
+                                    return;
+                                }
+                                let discard = response === 'yes';
+
+                                await channel.send('Lastly, should the `/item use` message be Ephemeral? (yes/no)\n\nIf yes, others wont see it, only the user will');
+
+                                response = (await this.wizardHelper.getResponse({
+                                    channelID: channel.id,
+                                    userID: interaction.user.id,
+                                })).content.trim().toLowerCase();
+
+                                if (response !== 'yes' && response !== 'no') {
+                                    await channel.send('Invalid response! Please respond with "yes" or "no". Aborting.');
+                                    return;
+                                }
+
+                                let ephemeral = response === 'yes';
+
+                                setItemUse(type, {
+                                    discard,
+                                    data: {
+                                        type: 'message',
+                                        ephemeral,
+                                        message: msg,
+                                        place: '',
+                                        value: '',
+                                    }
+                                });
+
+                                await channel.send({
+                                    content: `Item use for ${type} has been set to ${discard ? 'discard' : 'keep'} the item and to send a Message. Congrats!`,
+                                    allowedMentions: { parse: [] },
+                                });
+                            } else {
+                                await channel.send('You have to pick one of the provided. Aborting.');
+                                return;
+                            }
                         } else if (interaction.options.getSubcommand() === 'types') {
                             let types = this.getItemTypesCanManufacture(interaction.user.id);
                             if (types.length === 0) {
@@ -429,11 +1067,12 @@ export default class Economy {
                     }
                 }
             } catch (e) {
-                interaction.reply({
-                    content: 'Some issue is happen! Help me! ' + e.toString(),
-                    ephemeral: true,
-                });
                 console.error(e);
+                if (interaction.channel && interaction.channel.isSendable()) {
+                    interaction.channel.send({
+                        content: 'Some issue is happen! Help me! ' + (e as any).toString(),
+                    });
+                }
             }
         });
     }
@@ -527,6 +1166,16 @@ export default class Economy {
             manufacturers: JSON.parse(row.manufacturers),
             owner: row.owner,
         };
+    }
+
+    setItemEmoji(type: string, emoji: string) {
+        const stmt = this.db.prepare("update item_types set emoji = ? where type = ?");
+        stmt.run(emoji, type);
+    }
+
+    setItemName(type: string, name: string) {
+        const stmt = this.db.prepare("update item_types set name = ? where type = ?");
+        stmt.run(name, type);
     }
 
     addInventoryItems(user_id: string, type: string, count: number): number { // returns new count
