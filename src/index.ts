@@ -60,7 +60,7 @@ const economy = new Economy(db, orgs, client, wizardHelper);
 orgs.economy = economy;
 const hexColorPreview = new HexColorPreview();
 const beatsRock = new BeatsRock(client);
-const jobs = new Jobs(client);
+const jobs = new Jobs(client, economy);
 const shell = new Shell();
 
 const rest = new REST({ version: '9' }).setToken(process.env.TOKEN!);
@@ -413,7 +413,7 @@ client.on(Events.MessageCreate, async message => {
 
         hexColorPreview.sendColorPreviews(message);
         beatsRock.doGames(message);
-        //jobs.doJobs(message);
+        jobs.doJobs(message);
         shell.runShell(message);
     } catch (e) {
         console.log(e);

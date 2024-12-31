@@ -18,6 +18,26 @@ const command: SlashCommand = {
                         .setRequired(true).setAutocomplete(true)))
         .addSubcommand(subcommand =>
             subcommand
+                .setName('pay')
+                .setDescription('Pay a specific user')
+                .addUserOption(option =>
+                    option
+                        .setName('person1')
+                        .setDescription('The user to pay from')
+                        .setRequired(true))
+                .addUserOption(option =>
+                    option
+                        .setName('person2')
+                        .setDescription('The user to pay to')
+                        .setRequired(true))
+                .addIntegerOption(option =>
+                    option
+                        .setName('amount')
+                        .setDescription('The amount to pay')
+                        .setMinValue(1)
+                        .setRequired(true)))
+        .addSubcommand(subcommand =>
+            subcommand
                 .setName('deleteorg')
                 .setDescription('Pay an org')
                 .addStringOption(option =>

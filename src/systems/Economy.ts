@@ -60,15 +60,6 @@ export default class Economy {
                 place: string, // for role this is server ID, for http and message this has nothing, for command this is channel ID to run it.
             }
         }
-
-        let claimStarter = (user_id: string): void => {
-            const stmt = this.db.prepare("insert into claimed_starter (user_id) values (?);");
-            stmt.run(user_id);
-
-            this.changeMoney(user_id, 50000);
-            this.changeMoney('1183134058415394846', -50000);
-        };
-
         let getItemUse = (item_type: string): ItemUse | null => {
             const stmt = this.db.prepare("select * from item_uses where item_type = ?;");
             const row = stmt.get(item_type) as any;
@@ -115,9 +106,20 @@ export default class Economy {
 
                 if (interaction.isChatInputCommand()) {
                     if (interaction.commandName === 'claim') {
+                        if (interaction.guildId !== '1224881201379016825') {
+                            await interaction.reply({ content: 'This command is only available in the main server.', ephemeral: true });
+                            return;
+                        }
                         if (!claimedStarter(interaction.user.id)) {
-                            claimStarter(interaction.user.id);
+                            const stmt = this.db.prepare("insert into claimed_starter (user_id) values (?);");
+                            stmt.run(interaction.user.id);
+
+                            this.changeMoney(interaction.user.id, 50000);
+                            this.changeMoney('1183134058415394846', -50000);
+
                             await interaction.reply({ content: `You have claimed your starter ${ECONOMY_NAME_PLURAL}! You now have **${stringifyMoney(this.getMoney(interaction.user.id))}**.`, ephemeral: false });
+                            let msg = await interaction.fetchReply();
+                            this.registerTransaction(msg.url, '1183134058415394846', interaction.user.id, 50000, 50000);
                         } else {
                             await interaction.reply({ content: `You have already claimed your starter ${ECONOMY_NAME_PLURAL}.`, ephemeral: true });
                         }
@@ -127,6 +129,13 @@ export default class Economy {
                             const type = interaction.options.getString('type', true);
                             this.db.run('delete from item_types where type=?', [type]);
                             await interaction.reply({ content: `Deleted item type ${type}.`, ephemeral: false });
+                        }
+                        if (interaction.options.getSubcommand() === 'pay') {
+                            const user1 = interaction.options.getUser('person1', true);
+                            const user2 = interaction.options.getUser('person2', true);
+                            const amount = interaction.options.getInteger('amount', true);
+
+                            this.pay(user1, user2, amount, interaction, true);
                         }
                     }
                     else if (interaction.commandName === 'pay') {
@@ -246,6 +255,13 @@ export default class Economy {
                                 name: `${inv[item]}x ${type.emoji} \`${item}\``,
                                 value: type.name
                             });
+                            if (embed2.fields?.length == 23) {
+                                embed2.fields!.push({
+                                    name: `youve got more but hit max embed fields`,
+                                    value: `pagination coming soons!!!`
+                                });
+                                break;
+                            }
                         }
 
                         interaction.reply({ embeds: [embed2], ephemeral: true });
@@ -768,8 +784,23 @@ export default class Economy {
 
                                 let channelID = response;
                                 let c = await this.client.channels.fetch(channelID).catch(() => null);;
-                                if (!c || !c.isTextBased() || !c.isSendable()) {
+                                if (!c || !c.isTextBased() || !c.isSendable() || c.isDMBased()) {
                                     await channel.send(`Sorry, that isn't a valid text channel, or I cant access it.\n\nAborting.`);
+                                    return;
+                                }
+
+                                // make sure that user has permission to speak in that channel
+                                let user = await c.guild.members.fetch(interaction.user.id).catch(() => null);
+
+                                if (!user) {
+                                    await channel.send(`Sorry, I can't find you in that guild. Maybe you're not a member?\n\nAborting.`);
+                                    return;
+                                }
+
+                                let perms = c.permissionsFor(user).has(PermissionsBitField.Flags.ManageWebhooks);
+
+                                if (!perms) {
+                                    await channel.send(`Sorry, you don't have permission to manage webhooks there.\n\nAborting.`);
                                     return;
                                 }
 
@@ -905,7 +936,15 @@ export default class Economy {
                                 return;
                             }
                             let stringTypes = types.map(type => `**${type}**`).join(', ');
-                            interaction.reply({ content: `These types exist: ${stringTypes}.`, ephemeral: true });
+
+                            let content = `These types exist: ${stringTypes}.`;
+
+                            // trim to max 2000 chars
+                            if (content.length > 2000) {
+                                let endString = '... (rest omitted to keep under 2k chars)';
+                                content = content.substring(0, 2000 - endString.length - 1) + endString;
+                            }
+                            interaction.reply({ content, ephemeral: true });
                         } else if (interaction.options.getSubcommand() === 'type') {
                             let type = interaction.options.getString('type', true);
                             let item = this.getItemType(type);
@@ -1210,24 +1249,26 @@ export default class Economy {
         return 'id' in thing;
     }
 
-    async pay(from: User | Org, to: User | Org, amount: number, interaction: ChatInputCommandInteraction | UserContextMenuCommandInteraction | ModalSubmitInteraction | ButtonInteraction | TextChannel) {
-        if (isNaN(amount)) {
-            if ('reply' in interaction) {
-                interaction.reply({
-                    content: 'Please specify an amount!',
-                    ephemeral: true,
-                });
+    async pay(from: User | Org, to: User | Org, amount: number, interaction: ChatInputCommandInteraction | UserContextMenuCommandInteraction | ModalSubmitInteraction | ButtonInteraction | TextChannel, force: boolean = false) {
+        if (!force) {
+            if (isNaN(amount)) {
+                if ('reply' in interaction) {
+                    interaction.reply({
+                        content: 'Please specify an amount!',
+                        ephemeral: true,
+                    });
+                }
+                return;
             }
-            return;
-        }
-        if (amount < 1) {
-            if ('reply' in interaction) {
-                interaction.reply({
-                    content: 'Please specify an amount greater than 0!',
-                    ephemeral: true,
-                });
+            if (amount < 1) {
+                if ('reply' in interaction) {
+                    interaction.reply({
+                        content: 'Please specify an amount greater than 0!',
+                        ephemeral: true,
+                    });
+                }
+                return;
             }
-            return;
         }
 
         let fromProfile = {
@@ -1280,7 +1321,7 @@ export default class Economy {
         }
 
         let money = this.getMoney(fromProfile.id);
-        if (money < amount) {
+        if (money < amount && !force) {
             if ('reply' in interaction) {
                 interaction.reply({
                     content: 'You don\'t have enough!\n\nYou have **' + stringifyMoney(money) + '**, but you need **' + stringifyMoney(amount) + '**.\n(missing **' + stringifyMoney(amount - money) + '**)',
@@ -1302,7 +1343,7 @@ export default class Economy {
                 icon_url: fromProfile.avatar
             },
             description: `## Transaction Receipt\n
-${fromProfile.mention}>'s previous balance: **${stringifyMoney(money)}**
+${fromProfile.mention}'s previous balance: **${stringifyMoney(money)}**
 ${toProfile.mention}'s previous balance: **${stringifyMoney(userBMoney)}**
 
 > ### __Total paid to ${toProfile.mention}: **${stringifyMoney(amount)}**__
