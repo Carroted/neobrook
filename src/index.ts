@@ -87,8 +87,48 @@ for (const file of userContextMenuCommandFiles) {
     commands.set(command.data.name, command);
 }
 
+let statusQueue = [
+    'Tree breaks as air remembers',
+    "Use /tutorial to get started",
+    "Start with /tutorial",
+    "Economy, items, games",
+    "The /tutorial is real",
+    "Hi use /tutorial it is good",
+    "Custom Items and Economy",
+    "Use /tutorial to begin truth",
+];
+
+function shuffle(array: any[]) {
+    let currentIndex = array.length;
+
+    // While there remain elements to shuffle...
+    while (currentIndex != 0) {
+
+        // Pick a remaining element...
+        let randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+
+        // And swap it with the current element.
+        [array[currentIndex], array[randomIndex]] = [
+            array[randomIndex], array[currentIndex]];
+    }
+}
+
+shuffle(statusQueue);
+let statusIndex = 0;
+function nextStatus() {
+    client.user!.setActivity('activity', { type: ActivityType.Custom, state: statusQueue[statusIndex % statusQueue.length] });
+    statusIndex++;
+}
+
 client.once(Events.ClientReady, async () => {
     console.log(colors.greenBright('Connected to Discord'));
+
+    nextStatus();
+
+    setInterval(() => {
+        nextStatus();
+    }, 1000 * 60 * 5);
 
     try {
         const commandArray = commands.map(command => command.data.toJSON());

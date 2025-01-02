@@ -105,7 +105,12 @@ export default class Economy {
                 }
 
                 if (interaction.isChatInputCommand()) {
-                    if (interaction.commandName === 'claim') {
+                    if (interaction.commandName === 'tutorial') {
+                        interaction.reply({
+                            content: '## Brook Tutorial\n\nGreetings mortal. Brook is a bot with Economy, Utilities, and Items. We also have Games, but most only work within the Brook server itself, which this bot is made for.\n\nHowever, economy and items work everywhere.\n\nIn the life of a brooked, we often want to create our very own Items. In order to do this, you have to first make an Org, a group of people.\n\nSo first, run `/org create`. Then you\'ll have an org you can use to make your items.\n\nAnd so then, you can do `/item createtype`. This allows you to make your own kind of item, such as Guns, Apples, etc.\n\nAfter creating your item type, you can manufacture some of your item with `/item create`. And then bam, you have items. Check your `/inventory` to see em\n\nNow you can Sell these to people. Ask them to `/pay` you in exchange for your product, which you\'ll hand over with a `/item give`. You are now a Manufacturer and they are the Consumer\n\nYou can also make your items do stuff. If you add brook to your server, you can make an item that gives someone a role in your server. You can also make items that run text chat commands (not slash commands but traditional prefix ones), or an item which just says a message, or even makes an HTTP request. All of these functionalities are set up with `/item setuse` and happen when users do `/item use`.\n\nLastly, you may wonder how to get Brook Currency, other than selling things. Joiners of brook server (which bot was made for) can do `/claim` there for ' + stringifyMoney(50000) + ' (currency of the bot). In [brook server](<https://discord.gg/FuHtxRQK6s>) you can also do `/cashier` to earn some.',
+                            ephemeral: true,
+                        });
+                    } else if (interaction.commandName === 'claim') {
                         if (interaction.guildId !== '1224881201379016825') {
                             await interaction.reply({ content: 'This command is only available in the main server.', ephemeral: true });
                             return;
@@ -216,6 +221,34 @@ export default class Economy {
                         };
                         await interaction.reply({ embeds: [embed], ephemeral: true });
                     } else if (interaction.commandName === 'leaderboard') {
+                        // 1 in 5 chance
+                        function randomRange(min: number, max: number) {
+                            return Math.floor(Math.random() * (max - min + 1)) + min;
+                        }
+                        let value = randomRange(1, 10);
+                        if (value < 2) {
+
+                            let quotes = [
+                                "Air isn't something that holds memories.",
+                                "The tree breaks when the air remembers",
+                                "The past comes back into awareness",
+                                "Once, I was at the forest",
+                                "While there, I saw something I wouldn't forget",
+                                "It dreamed of stars",
+                                "I tried to reach out, but...",
+                                "There was a sudden air movement",
+                                "And then our beloved tree fell",
+                                "I didn't sleep that night",
+                            ];
+                            let quote = quotes[Math.floor(Math.random() * quotes.length)];
+
+                            interaction.reply({
+                                content: quote,
+                                ephemeral: false,
+                            });
+                            return;
+                        }
+
                         let moneyRankings = this.getMoneyRankings(10);
                         let embed2: APIEmbed = {
                             color: 0x2b2d31,
