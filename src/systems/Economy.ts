@@ -89,7 +89,7 @@ export default class Economy {
             }
         };
 
-        //this.changeMoney('742396813826457750', 980000);
+        //this.changeMoney('1183134058415394846', 1000000);
 
         this.client.on(Events.InteractionCreate, async (interaction) => {
             try {
@@ -1353,6 +1353,9 @@ export default class Economy {
             };
         }
 
+        this.roundMoney(fromProfile.id);
+        this.roundMoney(toProfile.id);
+
         let money = this.getMoney(fromProfile.id);
         if (money < amount && !force) {
             if ('reply' in interaction) {
@@ -1458,6 +1461,31 @@ ${toProfile.mention} now has **${stringifyMoney(this.getMoney(toProfile.id))}** 
             ]);
         }
     }
+
+    roundMoney(user_id: string) {
+        // query the database for the user's current balance
+        let stmt = this.db.query("select * from economy where user_id = ?");
+        let rows = stmt.all(user_id) as any;
+
+        if (rows.length > 0) {
+            // round the user's current balance using Math.round
+            const currentBalance = rows[0].money;
+            const roundedBalance = Math.round(currentBalance);
+
+            // update the user's balance with the rounded value
+            this.db.run("update economy set money = ? where user_id = ?", [
+                roundedBalance,
+                user_id
+            ]);
+        } else {
+            // if no record exists, insert a default rounded value (e.g., 0)
+            this.db.run("insert into economy (user_id, money) values (?, ?)", [
+                user_id,
+                0
+            ]);
+        }
+    }
+
 
     getMoney(user_id: string): number {
         let stmt = this.db.query("select * from economy where user_id = ?");

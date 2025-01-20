@@ -31,7 +31,7 @@ export default class Orgs {
         this.client.on(Events.InteractionCreate, async (interaction) => {
             if (interaction.isAutocomplete()) {
                 const focusedOption = interaction.options.getFocused(true);
-                if (focusedOption.name !== 'type') {
+                if (focusedOption.name !== 'type' && interaction.commandName !== 'stocks') {
                     const orgs = this.getOrgs();
                     let matching = orgs.filter((org) => org.org_id.includes(focusedOption.value.toLowerCase()));
                     // filter to at most 25
