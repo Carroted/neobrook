@@ -11,9 +11,14 @@ interface News {
     description: string,
     stockImpacts: {
         id: string,
-        trend: number,
-        volatility: number,
+        valueChange: number,
+        volatilityChange: number,
+        speedChange: number,
     }[],
+}
+
+function randomRange(min: number, max: number): number {
+    return Math.random() * (max - min) + min
 }
 
 export default class Stocks {
@@ -50,12 +55,14 @@ export default class Stocks {
                     description: `"worst bullshit i ever ummm uhhh umm" - Joe`,
                     stockImpacts: [{
                         id: 'MKVX',
-                        trend: -1.8,
-                        volatility: -2,
+                        valueChange: -1.8 * randomRange(0.6, 1),
+                        speedChange: 1.2,
+                        volatilityChange: 1.8,
                     }, {
                         id: 'DETH',
-                        trend: 0.25,
-                        volatility: -0.2,
+                        valueChange: 0.25 * randomRange(0.6, 1),
+                        volatilityChange: -0.2,
+                        speedChange: 0.5,
                     }]
                 };
             } else {
@@ -64,12 +71,14 @@ export default class Stocks {
                     description: `"this fucking fuck is peak, buy now" - Snake`,
                     stockImpacts: [{
                         id: 'MKVX',
-                        trend: 1.5,
-                        volatility: -2,
+                        valueChange: 1.8 * randomRange(0.6, 1),
+                        volatilityChange: -0.5,
+                        speedChange: 1.3,
                     }, {
                         id: 'DETH',
-                        trend: -0.25,
-                        volatility: 0.5
+                        valueChange: -0.25 * randomRange(0.6, 1),
+                        speedChange: 1,
+                        volatilityChange: 0.5,
                     }]
                 };
             }
@@ -79,12 +88,14 @@ export default class Stocks {
                 description: `Releases right now. I guess we will see reviews in 60 seconds`,
                 stockImpacts: [{
                     id: 'MKVX',
-                    trend: 0.3,
-                    volatility: 2,
+                    valueChange: 0.3 * randomRange(0.6, 1.2),
+                    speedChange: 0.6,
+                    volatilityChange: 1.5,
                 }, {
                     id: 'DETH',
-                    trend: -0.15,
-                    volatility: 0.5,
+                    valueChange: -0.15 * randomRange(0.6, 1.2),
+                    speedChange: 0.7,
+                    volatilityChange: 0.3,
                 }]
             };
         } else if (r < 0.4) {
@@ -95,12 +106,14 @@ export default class Stocks {
                 description: `Literally ${good ? 'buy' : 'sell'}`,
                 stockImpacts: [{
                     id: 'MKVX',
-                    trend: good ? -0.5 : 0.5,
-                    volatility: good ? 2 : -0.5,
+                    valueChange: (good ? -0.5 : 0.5) * randomRange(0.6, 1.2),
+                    volatilityChange: good ? 2 : -0.5,
+                    speedChange: 0.5,
                 }, {
                     id: 'DETH',
-                    trend: good ? 1 : -2,
-                    volatility: good ? -2 : 2,
+                    valueChange: (good ? 1 : -2) * randomRange(0.6, 1.2),
+                    volatilityChange: good ? -2 : 2,
+                    speedChange: 1.5,
                 }]
             };
         } else if (r < 0.6) {
@@ -110,8 +123,9 @@ export default class Stocks {
                     description: `I am struggling to find myself emotiobally impacted\n*emotionnalllyb`,
                     stockImpacts: [{
                         id: 'DNTC',
-                        trend: -10,
-                        volatility: 10,
+                        valueChange: -3 * randomRange(0.6, 1.2),
+                        speedChange: 2,
+                        volatilityChange: 4,
                     }]
                 };
             } else {
@@ -120,12 +134,14 @@ export default class Stocks {
                     description: `Experts say this will lead to profits for DontCare\nAlso the winterstorms are calming down. Less volatile`,
                     stockImpacts: [{
                         id: 'DNTC',
-                        trend: 10,
-                        volatility: -10,
+                        valueChange: 3.1 * randomRange(0.6, 1.2),
+                        volatilityChange: -2,
+                        speedChange: 0.6,
                     }, {
                         id: 'WNTR',
-                        trend: 0,
-                        volatility: -100,
+                        valueChange: 0,
+                        volatilityChange: -100,
+                        speedChange: 0.5,
                     }]
                 };
             }
@@ -136,8 +152,9 @@ export default class Stocks {
                     description: `Praise wintercorp 帮我 :fire::fire::fire: 尖叫 :fire: 我快窒息了`,
                     stockImpacts: [{
                         id: 'WNTR',
-                        trend: 10,
-                        volatility: 10,
+                        valueChange: 1 * randomRange(0.6, 1.2),
+                        speedChange: 0.5,
+                        volatilityChange: 2,
                     }]
                 };
             } else {
@@ -146,8 +163,10 @@ export default class Stocks {
                     description: `You know what THAT means`,
                     stockImpacts: [{
                         id: 'WNTR',
-                        trend: -10,
-                        volatility: 10,
+                        valueChange: -10 * randomRange(0.6, 1.2),
+                        speedChange: 2,
+                        volatilityChange: 2,
+
                     }]
                 };
             }
@@ -157,12 +176,14 @@ export default class Stocks {
                 description: `Praise wintercorp 帮我 :fire::fire::fire: 尖叫 :fire: 我快窒息了`,
                 stockImpacts: [{
                     id: 'WNTR',
-                    trend: 0,
-                    volatility: -100,
+                    valueChange: 0,
+                    volatilityChange: -100,
+                    speedChange: 0.6,
                 }, {
                     id: 'MKVX',
-                    trend: 0,
-                    volatility: -100,
+                    valueChange: 0,
+                    volatilityChange: -100,
+                    speedChange: 0.6,
                 }]
             };
 
@@ -177,6 +198,44 @@ export default class Stocks {
         this.messages['DETH'] = await this.stocksChannel.messages.fetch('1330697029822709912');
         this.messages['DNTC'] = await this.stocksChannel.messages.fetch('1330697036596514948');
         this.messages['WNTR'] = await this.stocksChannel.messages.fetch('1330697041541726310');
+
+        await this.newsChannel.send('# _ _\n-# Bot reboot\n# _ _');
+
+        const cycle = (delay: boolean) => {
+            console.log('Cycling with', delay);
+            let news = this.getNews();
+            if (news) {
+                this.newsChannel.send(`## ${news.title}\n${news.description}`);
+                for (let g of news.stockImpacts) {
+                    this.manager.applyNewsImpact(g.id, g.valueChange, g.speedChange, g.volatilityChange);
+                }
+            }
+            setTimeout(() => {
+                this.manager.updateStockPrices();
+
+                for (let id of Object.keys(this.messages)) {
+                    const stock = this.manager.getStock(id);
+
+                    console.log('Timing');
+
+                    if (stock) {
+                        this.messages[id].edit({
+                            files: [this.manager.render(stock.name, stock.id, this.manager.getStockHistory(id, 15))],
+                            content: '',
+                            embeds: [],
+                            components: []
+                        });
+                    } else {
+                        console.log('nostock')
+                    }
+                }
+            }, delay ? 1000 * 30 : 0);
+        };
+
+        setInterval(() => {
+            cycle(true);
+        }, 1000 * 60);
+        cycle(false);
     }
 
     constructor(db: Database, client: Client, economy: Economy, newsChannel: TextChannel, stocksChannel: TextChannel) {
@@ -187,52 +246,26 @@ export default class Stocks {
         this.newsChannel = newsChannel;
         this.stocksChannel = stocksChannel;
 
-        /*this.manager.addStock("MKVX", "Mkevx LLC", 150, 2, 1000000);
-        this.manager.addStock("DETH", "Death Software", 150, 2, 1000000);
-        this.manager.addStock("DNTC", "DontCare Health", 150, 2, 1000000);
-        this.manager.addStock("WNTR", "Winter Corporation", 150, 2, 1000000);
-        this.manager.setStockInfluence(`DETH`, `MKVX`, -0.1);
-        this.manager.setStockInfluence(`MKVX`, `DETH`, -0.1);
-        this.manager.setStockInfluence(`WNTR`, `DETH`, 5);
+        if (!this.manager.getStock("MKVX")) {
+            this.manager.addStock("MKVX", "Mkevx LLC", 150, 2, 1000000);
+            this.manager.addStock("DETH", "Death Software", 150, 2, 1000000);
+            this.manager.addStock("DNTC", "DontCare Health", 150, 2, 1000000);
+            this.manager.addStock("WNTR", "Winter Corporation", 150, 2, 1000000);
+            this.manager.setStockInfluence(`DETH`, `MKVX`, -0.1);
+            this.manager.setStockInfluence(`MKVX`, `DETH`, -0.1);
+            this.manager.setStockInfluence(`WNTR`, `DETH`, 0.1);
 
-        for (let i = 0; i < 60; i++) {
-            this.manager.updateStockPrices();
-        }*/
-
-        const cycle = () => {
-            let news = this.getNews();
-            if (news) {
-                this.newsChannel.send(`## ${news.title}\n${news.description}`);
-                for (let g of news.stockImpacts) {
-                    this.manager.applyNewsImpact(g.id, g.trend, g.volatility);
-                }
-            }
-            setTimeout(() => {
+            for (let i = 0; i < 60; i++) {
                 this.manager.updateStockPrices();
-
-                for (let id of Object.keys(this.messages)) {
-                    const stock = this.manager.getStock(id);
-
-                    if (stock) {
-                        this.messages[id].edit({
-                            files: [this.manager.render(stock.name, stock.id, this.manager.getStockHistory(id, 15))],
-                            content: '',
-                            embeds: [],
-                            components: []
-                        });
-                    }
-                }
-            }, 1000 * 30);
+            }
         }
 
-        setInterval(() => {
-            cycle();
-        }, 1000 * 60);
-        cycle();
+
 
         this.db.run("create table if not exists user_shares (id TEXT, user_id TEXT, amount INTEGER);");
         //this.db.run('drop table product_counters');
         this.db.run("create table if not exists product_counters (id TEXT, counter INTEGER);");
+        this.incrementCounter('g');
         this.incrementCounter('g');
         this.incrementCounter('g');
         this.incrementCounter('g');
@@ -274,7 +307,8 @@ export default class Stocks {
                     }
 
                     if (sub === 'shares') {
-                        interaction.reply(this.getAllShares(interaction.user.id).map((s) => `${s.id}: ${s.amount}`).join('\n'));
+                        let shares = this.getAllShares(interaction.user.id);
+                        interaction.reply(shares.map((s) => `${s.id}: ${s.amount}`).join('\n') + (shares.length === 0 ? 'No shares' : ''));
                     }
 
                     if (sub === 'buy') {
@@ -286,13 +320,13 @@ export default class Stocks {
                         }
 
                         const amount = interaction.options.getInteger('amount', true);
-                        if (amount < 0) {
-                            return interaction.reply('no neg')
+                        if (amount < 1) {
+                            return interaction.reply('no under 1')
                         }
 
-                        const cost = amount * stock.price;
-                        if (cost < 0) {
-                            return interaction.reply('no neg')
+                        const cost = amount * Math.round(stock.price);
+                        if (cost < 1) {
+                            return interaction.reply('no under 1')
                         }
 
                         this.economy.pay(interaction.user, this.client.user!, Math.round(cost), interaction).then(() => {
@@ -310,22 +344,22 @@ export default class Stocks {
 
                         const amount = interaction.options.getInteger('amount', true);
 
-                        if (amount < 0) {
-                            return interaction.reply('no neg')
+                        if (amount < 1) {
+                            return interaction.reply('no under 1')
                         }
 
                         let a = this.getShares(interaction.user.id, id);
 
-                        if (this.economy.getMoney(this.client.user!.id) < Math.round(stock.price * amount)) {
+                        if (this.economy.getMoney(this.client.user!.id) < Math.round(stock.price) * amount) {
                             return interaction.reply('im broke');
                         }
 
                         if (a >= amount) {
                             this.changeShares(interaction.user.id, id, -amount);
-                            this.economy.changeMoney(interaction.user.id, Math.round(stock.price * amount));
-                            this.economy.changeMoney(this.client.user!.id, Math.round(-stock.price * amount));
+                            this.economy.changeMoney(interaction.user.id, Math.round(stock.price) * amount);
+                            this.economy.changeMoney(this.client.user!.id, Math.round(-stock.price) * amount);
 
-                            interaction.reply(`You sold ${amount} shares of ${stock.id} (each ${stringifyMoney(Math.round(stock.price))}) for a total of ${stringifyMoney(Math.round(stock.price * amount))}`);
+                            interaction.reply(`You sold ${amount} shares of ${stock.id} (each ${stringifyMoney(Math.round(stock.price))}) for a total of ${stringifyMoney(Math.round(stock.price) * amount)}`);
                         } else {
                             interaction.reply('u don haves enoughs');
                         }
@@ -438,8 +472,9 @@ interface Stock {
     id: string; // The stock ticker symbol (e.g., "AAPL")
     name: string; // The full name of the stock (e.g., "Apple")
     price: number; // The current price of the stock
-    trend: number; // The current trend affecting the stock's price
+    true_value: number; // The current realing
     volatility: number; // The volatility factor of the stock, affecting randomness
+    correct_speed: number;
     shares: number; // Total number of shares available
     influences: { [key: string]: number }; // Maps other stock tickers to influence weights
 }
@@ -482,7 +517,8 @@ class StocksManager {
         id TEXT PRIMARY KEY,        -- Using ticker symbol as the primary key
         name TEXT,
         price REAL,
-        trend REAL,
+        true_value REAL,
+        correct_speed REAL,
         volatility REAL,
         shares INTEGER,
         influences TEXT
@@ -646,13 +682,14 @@ class StocksManager {
     addStock(id: string, name: string, initialPrice: number, volatility: number, shares: number): void {
         // Add stock data to the `stocks` table
         this.db.run(
-            `INSERT OR REPLACE INTO stocks (id, name, price, trend, volatility, shares, influences) VALUES (?, ?, ?, ?, ?, ?, ?)`, [
-            id,
-            name,
-            initialPrice,
-            0, // initial trend
-            volatility,
-            shares,
+            `INSERT OR REPLACE INTO stocks (id, name, price, true_value, correct_speed, volatility, shares, influences) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
+            id,// id
+            name, //name
+            initialPrice, // price
+            initialPrice, //truevalue
+            0.1, //correctspeed
+            volatility, //volatility
+            shares, //shares
             "{}" // empty influence JSON
         ]);
 
@@ -686,17 +723,20 @@ class StocksManager {
      * @param stockId - The ticker symbol of the stock to affect.
      * @param impact - The magnitude of the impact.
      */
-    applyNewsImpact(stockId: string, trend: number, volatility: number): void {
+    applyNewsImpact(stockId: string, valueChange: number, speedChange: number, volatilityChange: number): void {
         const stock = this.getStock(stockId);
         if (stock) {
-            stock.trend += trend;
-            stock.volatility += volatility;
+            stock.true_value += valueChange;
+            stock.correct_speed += speedChange;
+            stock.correct_speed = Math.max(0, stock.correct_speed);
+            stock.volatility += volatilityChange;
             stock.volatility = Math.max(stock.volatility, 0);
             // Update the trend in the database
             this.db.run(
-                `UPDATE stocks SET trend = ?, volatility = ? WHERE id = ?`,
+                `UPDATE stocks SET true_value = ?, correct_speed = ?, volatility = ? WHERE id = ?`,
                 [
-                    stock.trend,
+                    stock.true_value,
+                    stock.correct_speed,
                     stock.volatility,
                     stockId
                 ]
@@ -717,7 +757,8 @@ class StocksManager {
                 id: row.id,
                 name: row.name,
                 price: row.price,
-                trend: row.trend,
+                true_value: row.true_value,
+                correct_speed: row.correct_speed,
                 volatility: row.volatility,
                 shares: row.shares,
                 influences: JSON.parse(row.influences),
@@ -740,34 +781,40 @@ class StocksManager {
 
                 this.noises[stock.id] = createNoise2D();
             }
+
+            // ensure true value stays within realistic bounds
+            stock.true_value = Math.min(Math.max(stock.true_value, 0), 10); // example cap range [0, 100]
+            stock.correct_speed = Math.min(Math.max(stock.correct_speed * 0.88, 0.2), 1.2);
+            stock.volatility = Math.min(Math.max(stock.volatility * 0.88, 0.5, 3));
+
             // calculate smooth noise
             const noiseFactor = this.noises[stock.id](this.time, stock.price) * stock.volatility;
+            // apply volatility noise to the price
+            stock.price += Math.min(noiseFactor, 3);
 
-            // apply trend and noise
-            stock.price += stock.trend + noiseFactor;
+            // apply correction towards true value based on the correction speed
+            const correction = (stock.true_value - stock.price) * stock.correct_speed;
+            stock.price += correction;
 
-            // apply influence from other stocks
+            // apply influence from other stocks based on true value differences
             for (const [influencedById, weight] of Object.entries(stock.influences)) {
                 const influencingStock = this.getStock(influencedById);
                 if (influencingStock) {
-                    stock.price += weight * influencingStock.trend;
+                    const influence = weight * (influencingStock.true_value - stock.true_value);
+                    stock.price += influence;
                 }
             }
-
-            // decay the trend slightly for realism
-            stock.trend *= 0.95;
-
-            // ensure price stays realistic
-            stock.price = Math.min(Math.max(stock.price, -5), 50);
 
             // Save the updated price in the stocks_histories table with the current timestamp
             this.saveStockHistory(stock, currentTimestamp);
 
             // Update the stock price in the database
             this.db.run(
-                `UPDATE stocks SET price = ? WHERE id = ?`,
+                `UPDATE stocks SET price = ?, correct_speed = ?, true_value = ? WHERE id = ?`,
                 [
                     stock.price,
+                    stock.correct_speed,
+                    stock.true_value,
                     stock.id
                 ]
             );
@@ -785,10 +832,11 @@ class StocksManager {
             id: row.id,
             name: row.name,
             price: row.price,
-            trend: row.trend,
+            true_value: row.true_value,
             volatility: row.volatility,
             shares: row.shares,
             influences: JSON.parse(row.influences),
+            correct_speed: row.correct_speed,
         }));
     }
 

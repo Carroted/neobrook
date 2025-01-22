@@ -89,7 +89,12 @@ export default class Economy {
             }
         };
 
-        //this.changeMoney('1183134058415394846', 1000000);
+        if (this.sum() === 0) {
+            this.changeMoney('1183134058415394846', 1000000);
+            console.log('g');
+        } else {
+            console.log('Sum good');
+        }
 
         this.client.on(Events.InteractionCreate, async (interaction) => {
             try {
@@ -1504,7 +1509,7 @@ ${toProfile.mention} now has **${stringifyMoney(this.getMoney(toProfile.id))}** 
     sum() {
         let stmt = this.db.query("select sum(money) as sum from economy");
         let rows = stmt.all();
-        return (rows[0] as any).sum;
+        return (rows[0] as any).sum ?? 0;
     }
 
     /** Reclaims all of a user's money and gives it to the government fund, deleting their account in the process. Returns reclaimed amount. */
