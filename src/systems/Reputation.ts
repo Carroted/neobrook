@@ -1,5 +1,5 @@
 import { Client, Events, GuildMember, Message, MessageReaction, TextChannel, User } from "discord.js";
-import type { PartialMessageReaction, PartialUser, } from 'discord.js';
+import type { MessageCreateOptions, MessageEditOptions, PartialMessageReaction, PartialUser, } from 'discord.js';
 import Database from "bun:sqlite";
 
 export default class Reputation {
@@ -24,6 +24,7 @@ export default class Reputation {
 
     async reactionAdd(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) {
         if (user.id === '1171991184227442759') return;
+        if (user.bot) return;
         console.log('reaction');
         if (user.id === this.client.user!.id) return;
         // if guild isnt 1224881201379016825
@@ -108,7 +109,7 @@ export default class Reputation {
         }
 
         // basically, if 3 people react <:upvote:1309965553770954914> on something, its sent to <#1224889114344685709>. this is just like starboard, but built into this bot so we dont rely on closed source code
-        if (reaction.emoji.id === '1309965553770954914' && reaction.emoji.name === "upvote" && reaction.count >= 3) {
+        if (reaction.emoji.id === '1309965553770954914' && reaction.emoji.name === "upvote" && (reaction.count - reaction.users.cache.filter(u => u.bot).size) >= 3) {
             console.log('upvote');
             this.updateTop(message, reaction);
         }
@@ -119,6 +120,7 @@ export default class Reputation {
 
     async reactionRemove(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) {
         if (user.id === '1171991184227442759') return;
+        if (user.bot) return;
         console.log('reaction removed');
         if (user.id === this.client.user!.id) return;
         // if guild isnt 1224881201379016825
@@ -177,7 +179,7 @@ export default class Reputation {
         }
 
         // basically, if 3 people react <:upvote:1309965553770954914> on something, its sent to <#1224889114344685709>. this is just like starboard, but built into this bot so we dont rely on closed source code
-        if (reaction.emoji.id === '1309965553770954914' && reaction.emoji.name === "upvote" && reaction.count >= 3) {
+        if (reaction.emoji.id === '1309965553770954914' && reaction.emoji.name === "upvote" && (reaction.count - reaction.users.cache.filter(u => u.bot).size) >= 3) {
             console.log('upvote');
             this.updateTop(message, reaction);
         }
@@ -190,11 +192,12 @@ export default class Reputation {
         let downvoteCount = 0;
         for (const reaction of message.reactions.cache.values()) {
             if (reaction.emoji.id === '1309965539514257459' && reaction.emoji.name === "downvote") {
-                downvoteCount = reaction.count;
+                downvoteCount = reaction.count - reaction.users.cache.filter(u => u.bot).size;
                 break;
             }
         }
-        let messageObject = {
+        let upvoteCount = reaction.count - reaction.users.cache.filter(u => u.bot).size;
+        let messageObject: MessageCreateOptions = {
             content: '-# <@' + message.author.id + '>',
             embeds: [{
                 color: 0x2b2d31,
@@ -204,7 +207,7 @@ export default class Reputation {
                     icon_url: message.author.displayAvatarURL()
                 },
                 fields: [{
-                    name: `**${reaction.count.toString()}** <:upvote:1309965553770954914>`,
+                    name: `**${upvoteCount.toString()}** <:upvote:1309965553770954914>`,
                     value: `**${downvoteCount.toString()} <:downvote:1309965539514257459>**`,
                     inline: false
                 }, {
@@ -215,7 +218,8 @@ export default class Reputation {
                     name: 'Original Message',
                     value: `[Jump to message](${message.url})`,
                     inline: true
-                }]
+                }],
+                image: message.attachments.first() ? { url: message.attachments.first()!.url } : undefined,
             }]
         };
         // look into db upvotes table, is there a message with the same id as the source message?
@@ -224,12 +228,12 @@ export default class Reputation {
         if (rows.length > 0) {
             // edit with new messageObject
             let msg = await (channel as TextChannel).messages.fetch((rows[0] as any).new_message_id);
-            await msg.edit(messageObject);
+            await msg.edit(messageObject as MessageEditOptions);
             console.log('edited');
             return;
         }
 
-        let msg = await (channel as TextChannel).send(messageObject);
+        let msg = await (channel as TextChannel).send(messageObject as MessageCreateOptions);
         // add to database, all we need it to store is source message id and new message id
         this.db.run("insert into upvotes (source_message_id, new_message_id) values (?, ?)", [
             message.id,
