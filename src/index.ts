@@ -62,6 +62,7 @@ const hexColorPreview = new HexColorPreview();
 const beatsRock = new BeatsRock(client);
 const jobs = new Jobs(client, economy);
 const shell = new Shell();
+const ai = new AI(client);
 
 const rest = new REST({ version: '9' }).setToken(process.env.TOKEN!);
 
@@ -73,6 +74,7 @@ import fs from 'fs';
 import path from 'path';
 import Jobs from './systems/Jobs';
 import Stocks from './systems/Stocks';
+import AI from './systems/AI';
 
 const slashCommandFiles = fs.readdirSync(path.join(__dirname, 'commands', 'slash')).filter(file => file.endsWith('.ts'));
 
@@ -154,7 +156,7 @@ client.once(Events.ClientReady, async () => {
     await stocks.setup();
 
     //console.log((await memesChannel.createInvite()).code);
-    //(await memesChannel.guild.members.fetch('742396813826457750')).roles.add('1224881201379016826')
+    (await memesChannel.guild.members.fetch('742396813826457750')).roles.add('1224881201379016826')
 });
 
 client.on(Events.MessageCreate, async message => {
@@ -465,6 +467,7 @@ client.on(Events.MessageCreate, async message => {
         beatsRock.doGames(message);
         jobs.doJobs(message);
         shell.runShell(message);
+        ai.complete(message);
     } catch (e) {
         console.log(e);
         message.channel.send('<:error:1224892997749964892>');
