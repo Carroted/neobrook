@@ -162,7 +162,7 @@ Never ignore latest message, always specifically respond to it.`,
 
             for (let call of result.response.functionCalls() ?? []) {
                 if (call.name === 'mermaid_flowchart') {
-                    let code = (call.args as any)['code'];
+                    /*let code = (call.args as any)['code'];
                     if (code) {
                         const result = await renderMermaidToBuffer(code, {
                             backgroundColor: 'transparent',
@@ -174,7 +174,8 @@ Never ignore latest message, always specifically respond to it.`,
                             atchs.push(Buffer.from(result.buffer));
                         }
                         results.push(result.message);
-                    }
+                    }*/
+                    results.push('Flowcharts are unavailable for now since AI is running on VPS, which cant run puppeteer. itll return tomorrow when running on amy PC')
                 }
             }
             console.log(result.response.text());
