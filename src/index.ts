@@ -156,7 +156,7 @@ client.once(Events.ClientReady, async () => {
     await stocks.setup();
 
     //console.log((await memesChannel.createInvite()).code);
-    (await memesChannel.guild.members.fetch('742396813826457750')).roles.add('1224881201379016826')
+    //(await memesChannel.guild.members.fetch('742396813826457750')).roles.add('1224881201379016826')
 });
 
 client.on(Events.MessageCreate, async message => {
