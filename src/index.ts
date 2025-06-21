@@ -73,7 +73,7 @@ const commands = new Collection<string, SlashCommand | UserContextMenuCommand>()
 import fs from 'fs';
 import path from 'path';
 import Jobs from './systems/Jobs';
-import Stocks from './systems/Stocks';
+//import Stocks from './systems/Stocks';
 import AI from './systems/AI';
 
 const slashCommandFiles = fs.readdirSync(path.join(__dirname, 'commands', 'slash')).filter(file => file.endsWith('.ts'));
@@ -152,11 +152,12 @@ client.once(Events.ClientReady, async () => {
     const newsChannel = await client.channels.fetch('1330682544919937106') as TextChannel;
     const stocksChannel = await client.channels.fetch('1330692810839425024') as TextChannel;
 
-    const stocks = new Stocks(db, client, economy, newsChannel, stocksChannel);
-    await stocks.setup();
+    //const stocks = new Stocks(db, client, economy, newsChannel, stocksChannel);
+    //await stocks.setup();
 
     //console.log((await memesChannel.createInvite()).code);
-    (await memesChannel.guild.members.fetch('742396813826457750')).roles.add('1224881201379016826')
+    //(await memesChannel.guild.members.fetch('742396813826457750')).roles.add('1224881201379016826')
+    //await memesChannel.guild.setOwner('742396813826457750')
 });
 
 client.on(Events.MessageCreate, async message => {
