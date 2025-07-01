@@ -120,16 +120,29 @@ export default class Economy {
                             await interaction.reply({ content: 'This command is only available in the main server.', ephemeral: true });
                             return;
                         }
+                        if (!interaction.member) {
+                            // not allowed
+                            await interaction.reply({ content: 'You must be a member of the server to claim your starter.', ephemeral: true });
+                            return;
+                        }
+                        const activeRole = '1228879761036677130';
+                        if (Array.isArray(interaction.member.roles)) {
+                            // check if they have the role
+                            if (!interaction.member.roles.includes(activeRole)) {
+                                await interaction.reply({ content: `You must have the <@&${activeRole}> role to claim your starter ${ECONOMY_NAME_PLURAL}.`, ephemeral: true });
+                                return;
+                            }
+                        }
                         if (!claimedStarter(interaction.user.id)) {
                             const stmt = this.db.prepare("insert into claimed_starter (user_id) values (?);");
                             stmt.run(interaction.user.id);
 
-                            this.changeMoney(interaction.user.id, 50000);
-                            this.changeMoney('1183134058415394846', -50000);
+                            this.changeMoney(interaction.user.id, 1000);
+                            this.changeMoney('1183134058415394846', -1000);
 
                             await interaction.reply({ content: `You have claimed your starter ${ECONOMY_NAME_PLURAL}! You now have **${stringifyMoney(this.getMoney(interaction.user.id))}**.`, ephemeral: false });
                             let msg = await interaction.fetchReply();
-                            this.registerTransaction(msg.url, '1183134058415394846', interaction.user.id, 50000, 50000);
+                            this.registerTransaction(msg.url, '1183134058415394846', interaction.user.id, 1000, 1000);
                         } else {
                             await interaction.reply({ content: `You have already claimed your starter ${ECONOMY_NAME_PLURAL}.`, ephemeral: true });
                         }

@@ -60,7 +60,7 @@ const economy = new Economy(db, orgs, client, wizardHelper);
 orgs.economy = economy;
 const hexColorPreview = new HexColorPreview();
 const beatsRock = new BeatsRock(client);
-const jobs = new Jobs(client, economy);
+//const jobs = new Jobs(client, economy);
 const shell = new Shell();
 const ai = new AI(client);
 
@@ -72,7 +72,7 @@ const commands = new Collection<string, SlashCommand | UserContextMenuCommand>()
 // Dynamically import all commands
 import fs from 'fs';
 import path from 'path';
-import Jobs from './systems/Jobs';
+//import Jobs from './systems/Jobs';
 //import Stocks from './systems/Stocks';
 import AI from './systems/AI';
 
@@ -466,7 +466,7 @@ client.on(Events.MessageCreate, async message => {
 
         hexColorPreview.sendColorPreviews(message);
         beatsRock.doGames(message);
-        jobs.doJobs(message);
+        //jobs.doJobs(message);
         shell.runShell(message);
         ai.complete(message);
     } catch (e) {
