@@ -116,6 +116,10 @@ export default class Economy {
                             ephemeral: true,
                         });
                     } else if (interaction.commandName === 'claim') {
+                        if (interaction.user.bot) {
+                            await interaction.reply({ content: 'This command is only available to realers.', ephemeral: true });
+                            return;
+                        }
                         if (interaction.guildId !== '1224881201379016825') {
                             await interaction.reply({ content: 'This command is only available in the main server.', ephemeral: true });
                             return;
