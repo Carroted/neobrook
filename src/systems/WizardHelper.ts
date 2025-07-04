@@ -23,7 +23,7 @@ export default class WizardHelper {
         if (this.activeWizards[message.author.id] && message.channel.id === this.activeWizards[message.author.id]) {
             this.responsePromiseResolves[message.author.id]({
                 content: message.content,
-                attachments: message.attachments.map(a => a.url),
+                attachments: message.attachments.map(a => a.proxyURL),
             });
             delete this.activeWizards[message.author.id];
             delete this.responsePromiseResolves[message.author.id];

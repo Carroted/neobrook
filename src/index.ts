@@ -55,9 +55,6 @@ const client = new Client({
 
 const rep = new Reputation(db, client);
 const wizardHelper = new WizardHelper(client);
-const orgs = new Orgs(db, client, wizardHelper);
-const economy = new Economy(db, orgs, client, wizardHelper);
-orgs.economy = economy;
 const hexColorPreview = new HexColorPreview();
 const beatsRock = new BeatsRock(client);
 //const jobs = new Jobs(client, economy);
@@ -124,8 +121,15 @@ function nextStatus() {
     statusIndex++;
 }
 
+let economy: Economy | null = null;
+let orgs: Orgs | null = null;
+
 client.once(Events.ClientReady, async () => {
     console.log(colors.greenBright('Connected to Discord'));
+
+    orgs = new Orgs(db, client, wizardHelper);
+    economy = new Economy(db, orgs, client, wizardHelper, await client.channels.fetch('1386112879324958720')! as TextChannel);
+    orgs.economy = economy;
 
     nextStatus();
 
@@ -161,6 +165,10 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.on(Events.MessageCreate, async message => {
+    if (!economy) {
+        message.reply('help help im in the brook');
+        throw new Error('Lack of economic value');
+    }
     try {
         if (message.content.startsWith(client.user!.id + '!api ')) {
             let parts = message.content.split(' ');
@@ -296,7 +304,7 @@ client.on(Events.MessageCreate, async message => {
                                 return;
                             }
                             if (interaction.customId === 'confirm') {
-                                let paymentInfo = await economy.pay(userObject, message.author, amount, interaction); // from the person we are requesting payment from, to the person who ran this api payrequest, and send receipt in their DMs
+                                let paymentInfo = await economy!.pay(userObject, message.author, amount, interaction); // from the person we are requesting payment from, to the person who ran this api payrequest, and send receipt in their DMs
                                 if (paymentInfo) {
                                     // remove from paymentRequests
                                     let index = paymentRequests[user].indexOf(request);
@@ -413,21 +421,42 @@ client.on(Events.MessageCreate, async message => {
                 } else {
                     let user = args[0];
                     let amount = parseInt(args[1]);
-                    let channel = args[2];
+                    //let channel = args[2];
                     if (isNaN(amount) || amount < 1) {
                         message.reply(JSON.stringify({
                             status: 400,
                             body: 'Please specify a valid amount.'
                         }));
                     } else {
-                        let userObject = await client.users.fetch(user).catch(() => {
-                            return null;
-                        });
-                        if (!userObject) {
-                            message.reply(JSON.stringify({ status: 404, body: "User not found." }));
-                            return;
-                        }
+                        let paymentInfo: {
+                            amountSent: number,
+                            amountReceived: number,
+                            receiptLink: string,
+                            sender: string,
+                            recipient: string,
+                        } | undefined;
 
+                        if (/^\d+$/.test(user)) {
+                            let userObject = await client.users.fetch(user).catch(() => {
+                                return null;
+                            });
+                            if (!userObject) {
+                                message.reply(JSON.stringify({ status: 404, body: "User not found." }));
+                                return;
+                            }
+                            paymentInfo = await economy.pay(message.author, userObject, amount, null);
+                        } else {
+                            let org = orgs?.getOrg(user);
+                            if (org) {
+                                paymentInfo = await economy.pay(message.author, org, amount, null);
+                            } else {
+                                message.reply(JSON.stringify({
+                                    status: 400,
+                                    body: 'What the fuck are you saying you sutpid fucking fuck, thats not even a real org. I fucking hate you holy fuck. Im so fucking mad. Fuck.'
+                                }));
+                            }
+                        }
+/*
                         let channelObject = await client.channels.fetch(channel).catch(() => {
                             return null;
                         });
@@ -440,9 +469,7 @@ client.on(Events.MessageCreate, async message => {
                         if (channelObject.type !== ChannelType.GuildText && channelObject.type !== ChannelType.DM && channelObject.type !== ChannelType.GroupDM && channelObject.type !== ChannelType.PrivateThread && channelObject.type !== ChannelType.PublicThread) {
                             message.reply(JSON.stringify({ status: 404, body: "Invalid channel type." }));
                             return;
-                        }
-
-                        let paymentInfo = await economy.pay(message.author, userObject, amount, channelObject as TextChannel);
+                        }*/
 
                         if (paymentInfo) {
                             // send message json

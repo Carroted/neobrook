@@ -1,10 +1,12 @@
-import { ActionRowBuilder, ButtonInteraction, ChatInputCommandInteraction, Client, EmbedBuilder, Events, Message, ModalBuilder, ModalSubmitInteraction, PermissionsBitField, TextChannel, TextInputBuilder, TextInputStyle, User, UserContextMenuCommandInteraction, type APIEmbed, type APIEmbedField, type Interaction, type MessageCreateOptions, type ModalActionRowComponentBuilder, type OmitPartialGroupDMChannel } from "discord.js";
+import { ActionRowBuilder, ButtonInteraction, ChatInputCommandInteraction, Client, EmbedBuilder, Events, Guild, GuildMember, Message, ModalBuilder, ModalSubmitInteraction, PermissionsBitField, TextChannel, TextInputBuilder, TextInputStyle, User, UserContextMenuCommandInteraction, type APIEmbed, type APIEmbedField, type Interaction, type MessageCreateOptions, type ModalActionRowComponentBuilder, type OmitPartialGroupDMChannel } from "discord.js";
 import Database from "bun:sqlite";
 import type Orgs from "./Orgs";
 import type { Org } from "./Orgs";
 import { ECONOMY_NAME_PLURAL, ECONOMY_PREFIX, ECONOMY_SUFFIX_PLURAL, ECONOMY_SUFFIX_SINGULAR } from "../constants";
 import numberWithCommas from "../numberWithCommas";
 import type WizardHelper from "./WizardHelper";
+
+import express from 'express';
 
 /** Stringify money using specified prefix and suffix, as well as number formatting. */
 
@@ -14,18 +16,100 @@ function stringifyMoney(money: number) {
 }
 
 export { stringifyMoney };
+    
+interface UserInfo {
+    avatar: string,
+    name: string,
+    color: string,
+    id: string,
+    owner: string | null,
+    balance: number,
+}
+
+class RealerCache {
+    users: {
+        [id: string]: UserInfo;
+    } = {};
+    
+    guild: Guild;
+    orgs: Orgs;
+    economy: Economy;
+
+    constructor(guild: Guild, orgs: Orgs, economy: Economy) {
+        this.guild = guild;
+        this.orgs = orgs;
+        this.economy = economy;
+    }
+
+    async getUser(id: string): Promise<UserInfo> {
+        if (this.users[id]) {
+            return this.users[id];
+        } else {
+            if (/^\d+$/.test(id)) {
+                let member: GuildMember | User | null = await this.guild.members.fetch(id).catch(() => null);
+                if (!member) {
+                    member = await this.guild.client.users.fetch(id).catch(() => null);
+                }
+
+                let userInfo: UserInfo = {
+                    avatar: 'https://cdn.discordapp.com/embed/avatars/1.png',
+                    color: '#ffffff',
+                    name: 'Unknown User',
+                    id,
+                    owner: null,
+                    balance: this.economy.getMoney(id),
+                };
+
+                if (member) {
+                    userInfo.name = member.displayName;
+                    userInfo.avatar = member.displayAvatarURL();
+                    if ('displayHexColor' in member) {
+                        userInfo.color = member.displayHexColor;
+                    }
+                }
+
+                return userInfo;
+            } else {
+                let org = this.orgs.getOrg(id);
+                if (org) {
+                    return {
+                        avatar: org.icon,
+                        color: '#ffffff',
+                        name: org.org_id,
+                        id,
+                        owner: org.owner,
+                        balance: this.economy.getMoney(id),
+                    };
+                } else {
+                    return {
+                        avatar: 'https://cdn.discordapp.com/embed/avatars/1.png',
+                        color: '#ffffff',
+                        name: 'Unknown Org',
+                        id,
+                        owner: null,
+                        balance: this.economy.getMoney(id),
+                    };
+                }
+            }
+        }
+    }
+}
 
 export default class Economy {
     db: Database;
     orgs: Orgs;
     client: Client;
     wizardHelper: WizardHelper;
+    transactionsChannel: TextChannel;
+    realerCache: RealerCache;
 
-    constructor(db: Database, orgs: Orgs, client: Client, wizardHelper: WizardHelper) {
+    constructor(db: Database, orgs: Orgs, client: Client, wizardHelper: WizardHelper, transactionsChannel: TextChannel) {
         this.db = db;
         this.orgs = orgs;
         this.client = client;
         this.wizardHelper = wizardHelper;
+        this.transactionsChannel = transactionsChannel;
+        this.realerCache = new RealerCache(transactionsChannel.guild, orgs, this);
 
         db.run("create table if not exists economy (user_id text, money integer);");
         db.run("create table if not exists transactions (transaction_id text, sender text, recipient text, amount_sent integer, amount_received integer, date integer);");
@@ -95,6 +179,18 @@ export default class Economy {
         } else {
             console.log('Sum good');
         }
+
+        /*(async () => {
+            this.pay({
+                org_id: 'Unknown',
+                created: 3,
+                description: 'd',
+                icon: 'g',
+                members: [],
+                owner: ''
+            }, await client.users.fetch('742396813826457750'), 10, null);
+        })()*/
+        //this.delete('Unknown');
 
         this.client.on(Events.InteractionCreate, async (interaction) => {
             try {
@@ -233,11 +329,11 @@ export default class Economy {
                                 let regex = /^[0-9]+$/;
                                 if (transaction.recipient === interaction.user.id) {
                                     let formatted = regex.test(transaction.sender) ? `<@${transaction.sender}>` : `${transaction.sender}`;
-                                    return `<:plus:1309954509040124035> **${stringifyMoney(transaction.amount_received)}** (from ${formatted}) - [receipt](${transaction.transaction_id}) - <t:${Math.floor(transaction.date / 1000)}:R>`;
+                                    return `<:plus:1309954509040124035> **${stringifyMoney(transaction.amount_received)}** (from ${formatted}) - [message](${transaction.transaction_id}) - <t:${Math.floor(transaction.date / 1000)}:R>`;
                                 }
                                 else {
                                     let formatted = regex.test(transaction.recipient) ? `<@${transaction.recipient}>` : `${transaction.recipient}`;
-                                    return `<:minus:1309954499850407987> **${stringifyMoney(transaction.amount_sent)}** (to ${formatted}) - [receipt](${transaction.transaction_id}) - <t:${Math.floor(transaction.date / 1000)}:R>`;
+                                    return `<:minus:1309954499850407987> **${stringifyMoney(transaction.amount_sent)}** (to ${formatted}) - [message](${transaction.transaction_id}) - <t:${Math.floor(transaction.date / 1000)}:R>`;
                                 }
                             }).join('\n')
                         };
@@ -1169,6 +1265,179 @@ export default class Economy {
                 }
             }
         });
+
+        const app = express();
+
+        app.get('/', (req, res) => {
+            res.send('Hello World');
+        });
+
+        app.get('/balance/:user', (req, res) => {
+            let money = this.getMoney(req.params.user);
+            res.status(200).json({
+                balance: money,
+            });
+        });
+
+        app.get('/transactions/:user', async (req, res) => {
+            let limitQuery = req.query['limit'];
+            let defaultLimit = 10;
+            let limit = limitQuery ? (typeof limitQuery === 'string' ? parseInt(limitQuery) : defaultLimit) : defaultLimit;
+            let transactions = this.getTransactions(req.params.user, limit);
+            res.status(200).json(await Promise.all(transactions.map(async (ranking) => ({
+                ...ranking,
+                sender: await this.realerCache.getUser(ranking.sender),
+                recipient: await this.realerCache.getUser(ranking.recipient),
+            }))));
+        });
+
+        app.get('/leaderboard', async (req, res) => {
+            let limitQuery = req.query['limit'];
+            let defaultLimit = 10;
+            let limit = limitQuery ? (typeof limitQuery === 'string' ? parseInt(limitQuery) : defaultLimit) : defaultLimit;
+
+            let moneyRankings = this.getMoneyRankings(limit);
+
+            res.status(200).json(await Promise.all(moneyRankings.map(async (ranking) => ({
+                ...ranking,
+                user: await this.realerCache.getUser(ranking.user_id),
+            }))));
+        });
+
+        app.get('/orgs/:user', async (req, res) => {
+            let orgs = this.orgs.getOrgsUserIsIn(req.params.user);
+
+            res.status(200).json(await Promise.all(orgs.map(async (org) => ({
+                ...org,
+                user: await this.realerCache.getUser(org.org_id),
+                balance: this.getMoney(org.org_id),
+            }))));
+        });
+
+        app.get('/info/:user', async (req, res) => {
+            res.status(200).json(await this.realerCache.getUser(req.params.user));
+        });
+
+        app.get('/users', async (req, res) => {
+            res.status(200).json(await Promise.all(this.getAll().map(async (user) => await this.realerCache.getUser(user.user_id))));
+        });
+
+        app.post('/pay/:from/:to', async (req, res) => {
+            if (!req.query['amount']) {
+                res.status(400).send('not even Real. try harder');
+                return;
+            }
+            let amount = parseInt(req.query['amount'] as string);
+            let paymentInfo: {
+                amountSent: number,
+                amountReceived: number,
+                receiptLink: string,
+                sender: string,
+                recipient: string,
+            } | undefined;
+
+            let from: User | Org;
+            if (/^\d+$/.test(req.params.from)) {
+                let userObject = await client.users.fetch(req.params.from).catch(() => {
+                    return null;
+                });
+                if (!userObject) {
+                    res.status(400).send('not even Real. try harder');
+                    return;
+                }
+                from = userObject;
+            } else {
+                let org = orgs?.getOrg(req.params.from);
+                if (org) {
+                    from = org;
+                } else {
+                    res.status(400).send('not even Real. try harder');
+                    return;
+                }
+            }
+
+            let to: User | Org;
+            if (/^\d+$/.test(req.params.to)) {
+                let userObject = await client.users.fetch(req.params.to).catch(() => {
+                    return null;
+                });
+                if (!userObject) {
+                    res.status(400).send('not even Real. try harder');
+                    return;
+                }
+                to = userObject;
+            } else {
+                let org = orgs?.getOrg(req.params.to);
+                if (org) {
+                    to = org;
+                } else {
+                    res.status(400).send('not even Real. try harder');
+                    return;
+                }
+            }
+
+            res.status(200).json(await this.pay(from, to, amount, null));
+        });
+
+
+        app.post('/withdraw/:to/:from', async (req, res) => {
+            if (!req.query['amount']) {
+                res.status(400).send('not even Real. try harder');
+                return;
+            }
+            let amount = parseInt(req.query['amount'] as string);
+            let paymentInfo: {
+                amountSent: number,
+                amountReceived: number,
+                receiptLink: string,
+                sender: string,
+                recipient: string,
+            } | undefined;
+
+            let from: User | Org;
+            if (/^\d+$/.test(req.params.from)) {
+                let userObject = await client.users.fetch(req.params.from).catch(() => {
+                    return null;
+                });
+                if (!userObject) {
+                    res.status(400).send('not even Real. try harder');
+                    return;
+                }
+                from = userObject;
+            } else {
+                let org = orgs?.getOrg(req.params.from);
+                if (org) {
+                    from = org;
+                } else {
+                    res.status(400).send('not even Real. try harder');
+                    return;
+                }
+            }
+
+            let to: User | Org;
+            if (/^\d+$/.test(req.params.to)) {
+                let userObject = await client.users.fetch(req.params.to).catch(() => {
+                    return null;
+                });
+                if (!userObject) {
+                    res.status(400).send('not even Real. try harder');
+                    return;
+                }
+                to = userObject;
+            } else {
+                let org = orgs?.getOrg(req.params.to);
+                if (org) {
+                    to = org;
+                } else {
+                    res.status(400).send('not even Real. try harder');
+                    return;
+                }
+            }
+
+            res.status(200).json(await this.pay(from, to, amount, null));
+        });
+
+        app.listen(8171);
     }
 
     addItemType(type: string, name: string, emoji: string, manufacturers: string[], owner: string) {
@@ -1304,10 +1573,10 @@ export default class Economy {
         return 'id' in thing;
     }
 
-    async pay(from: User | Org, to: User | Org, amount: number, interaction: ChatInputCommandInteraction | UserContextMenuCommandInteraction | ModalSubmitInteraction | ButtonInteraction | TextChannel, force: boolean = false) {
+    async pay(from: User | Org, to: User | Org, amount: number, interaction: ChatInputCommandInteraction | UserContextMenuCommandInteraction | ModalSubmitInteraction | ButtonInteraction | null, force: boolean = false) {
         if (!force) {
             if (isNaN(amount)) {
-                if ('reply' in interaction) {
+                if (interaction) {
                     interaction.reply({
                         content: 'Please specify an amount!',
                         ephemeral: true,
@@ -1316,7 +1585,7 @@ export default class Economy {
                 return;
             }
             if (amount < 1) {
-                if ('reply' in interaction) {
+                if (interaction) {
                     interaction.reply({
                         content: 'Please specify an amount greater than 0!',
                         ephemeral: true,
@@ -1356,7 +1625,21 @@ export default class Economy {
             };
         }
 
-        let content: string | undefined = undefined;
+        let content: string = '';
+
+        if (this.isUser(from)) {
+            content += `<@${from.id}>`;
+        } else {
+            content += `**${from.org_id}**`;
+        }
+
+        content += ' paid ';
+
+        if (this.isUser(to)) {
+            content += `<@${to.id}>`;
+        } else {
+            content += `**${to.org_id}**`;
+        }
 
         if (this.isUser(to)) {
             toProfile = {
@@ -1365,7 +1648,7 @@ export default class Economy {
                 id: to.id,
                 mention: `<@${to.id}>`
             };
-            content = `-# <@${to.id}>`;
+            //content = `-# <@${to.id}>`;
         } else {
             toProfile = {
                 name: to.org_id,
@@ -1380,7 +1663,7 @@ export default class Economy {
 
         let money = this.getMoney(fromProfile.id);
         if (money < amount && !force) {
-            if ('reply' in interaction) {
+            if (interaction) {
                 interaction.reply({
                     content: 'You don\'t have enough!\n\nYou have **' + stringifyMoney(money) + '**, but you need **' + stringifyMoney(amount) + '**.\n(missing **' + stringifyMoney(amount - money) + '**)',
                     ephemeral: true,
@@ -1394,6 +1677,8 @@ export default class Economy {
         this.changeMoney(fromProfile.id, -amount);
         this.changeMoney(toProfile.id, amount);
 
+        content += ` **${stringifyMoney(amount)}**`;
+/*
         let embeds = [{
             color: 0x2b2d31,
             author: {
@@ -1408,22 +1693,20 @@ ${toProfile.mention}'s previous balance: **${stringifyMoney(userBMoney)}**
 
 ${fromProfile.mention} now has **${stringifyMoney(this.getMoney(fromProfile.id))}** (<:minus:1309954499850407987> ${stringifyMoney(amount)})
 ${toProfile.mention} now has **${stringifyMoney(this.getMoney(toProfile.id))}** (<:plus:1309954509040124035> ${stringifyMoney(amount)})`
-        }];
+        }];*/
 
         let receipt: Message;
-        if ('reply' in interaction) {
+        receipt = await this.transactionsChannel.send({
+            content,
+        });
+        if (interaction) {
             // embed of "Transaction Receipt", shows the same as above commented line, but also shows taxes, all in description
             await interaction.reply({
-                ephemeral: false,
-                content,
-                embeds,
+                ephemeral: true,
+                content: 'Payment successful'
             });
             receipt = await interaction.fetchReply();
         } else {
-            receipt = await interaction.send({
-                content,
-                embeds,
-            });
         }
         // store transaction in database
         this.registerTransaction(receipt.url, fromProfile.id, toProfile.id, amount, amount);
