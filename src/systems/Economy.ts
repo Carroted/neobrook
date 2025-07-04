@@ -1314,6 +1314,12 @@ export default class Economy {
             }))));
         });
 
+        app.get('/real/:user', async (req, res) => {
+            res.status(200).json({
+                real: this.getAll().find((e) => e.user_id === req.params.user) !== undefined
+            });
+        });
+
         app.get('/info/:user', async (req, res) => {
             res.status(200).json(await this.realerCache.getUser(req.params.user));
         });
