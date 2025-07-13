@@ -59,7 +59,7 @@ const hexColorPreview = new HexColorPreview();
 const beatsRock = new BeatsRock(client);
 //const jobs = new Jobs(client, economy);
 const shell = new Shell();
-const ai = new AI(client);
+//const ai = new AI(client);
 
 const rest = new REST({ version: '9' }).setToken(process.env.TOKEN!);
 
@@ -72,6 +72,7 @@ import path from 'path';
 //import Jobs from './systems/Jobs';
 //import Stocks from './systems/Stocks';
 import AI from './systems/AI';
+import { BotAPIServer } from './botport';
 
 const slashCommandFiles = fs.readdirSync(path.join(__dirname, 'commands', 'slash')).filter(file => file.endsWith('.ts'));
 
@@ -495,7 +496,7 @@ client.on(Events.MessageCreate, async message => {
         beatsRock.doGames(message);
         //jobs.doJobs(message);
         shell.runShell(message);
-        ai.complete(message);
+        //ai.complete(message);
     } catch (e) {
         console.log(e);
         message.channel.send('<:error:1224892997749964892>');
@@ -527,3 +528,323 @@ client.on(Events.InteractionCreate, async interaction => {
         await interaction.reply({ content: 'There was an error while executing this command.', ephemeral: true });
     }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const apiDocs = `
+# Brook API
+
+Welcome to the Brook Bot Economy API, powered by botport.
+This API allows other bots to interact with the economy system.
+
+## Endpoints
+
+- **GET /balance/:userId**
+  - Fetches the current balance of a given user.
+
+  \`\`\`ts
+      const user = '742396813826457750';
+      const response = await brook.get(\`/balance/\${user}\`);
+
+      console.log(response);
+  \`\`\`
+
+- **POST /pay/:userId**
+  - Sends money from your account to another user or an organization.
+  - Requires a query parameter \`?amount=<number>\`.
+
+  \`\`\`ts
+      const user = '742396813826457750';
+      const amount = 10;
+
+      const response = await brook.post(\`/pay/\${user}?amount=\${amount}\`);
+
+      console.log(response);
+  \`\`\`
+
+- **POST /payrequest/:userId**
+  - Sends an interactive payment request to another user.
+  - Requires query parameters \`?amount=<number>&channel=<channelId>\`.
+  - Requires a JSON body for the description: \`{ "description": "your reason here" }\`.
+  - This is a long-running operation. The API will first respond with a 102 (Processing) status to confirm the request was sent, and then a final 200-level status once the user accepts or declines.
+
+  \`\`\`ts
+      const user = '742396813826457750';
+      const amount = 10;
+      const channel = '1224889075337531524';
+
+      const response = await brook.post(\`/payrequest/\${user}?amount=\${amount}&channel=\${channel}\`, {
+          body: {
+              description: 'Give me all your money',
+          },
+      });
+
+      console.log(response);
+  \`\`\`
+`;
+
+// --- SERVER SETUP ---
+// Assuming 'client', 'economy', and 'orgs' are defined in this scope.
+const server = new BotAPIServer(client, {
+    docs: apiDocs,
+    shortDescription: 'Economy bot with a \'drops\' currency and orgs system',
+    privateKey: `-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDG8lKNTA1uhA5H
+Wa6ih+e/GPVQOQCmERLT4NgMD9pc1yLohFr2YXf4j223SdNX1oeuSPGs7fgg5+9J
+lKinZ1QJXXTT07p6VgBlCq5Dg4N4lA1F0DeJcG1hfgjDnNdQA6vdA+rTBeq7muxH
+SRJoOS9s2fKCMSO6/tuwt+IR/XNbtF3UUbzNKrh3F0aD7v1nZQpaOcMyJ9D68N4s
+nPJDPo6Xk5iwMc+N3d5rNVqD9HlLATp7TuYsluBJJXm6NJNKTNnc3/e08kg+pwZn
+rzMtV8sOk1GgPbf36Yd0ztuciB8+8be6ixq0Rg212pMRAJOvaZdBiTIgCfT+xpe8
+KJzyU08XAgMBAAECggEAVMzvsTjMtOHnMDSjAraJauRZlINnqmG2s8ewb5vGSTKO
+t6vLFiA/whxo+OqoAlX4aarAESUyUdxrG+MY7JpXsNI8PRqP7xt/eZJO64pAXQJG
+kg6JzbS1ewv88lyFTp7x//hufNqVzrffpRcZmIFfnLdd7m7BuzBtNmt7Go39QQXj
+/01tC8o9Ttmf8EDPIbECo9GlTp/8DeQx1kJJkW7XI9HLXqfi6fq9kKNmpxbqeE5S
+EA1P9riAk1TaDqA4fmvQk1zmBCCtJxLBnFN+AD/QcKMAXambd2CTLePAkGyO7tuH
+4ZM5ufU24Phb2ZcXTheWo4HZCIrRKiq2+//xSz+N+QKBgQD+X1tG2xOZJhyMqx3G
+im8IIN+8NIW3WImDawbfj12YbYqNdFANPLtGHQoI3zE5e/cyAoUq8hZhkAX7/NY1
+NUCywx2yTijkNTlAOt+KHvKtuMKQxynjUbJQzjZigauh5SbtVixDdnNB0qMXVFpr
++0nLJUrP2AaDFs8ViUXNz4gbVQKBgQDIOC6t8hjMaFk6ec5L7Ufu1+zYPfZ1enuE
+odJ8Dlo8BC3MqpBbpwPvmXGWOTUNsCYZdW41g66ypgxtHJJ98v2gq5xfutVwZHKi
+Tk4c/B+W1EIRWUit1IWLGmdB7RN/qANO5TCPJUX0U8JeDgSVUGkHxJfuS+aB3sRj
+whXZw7n4uwKBgQCuZKvMeTgHgGSEYHCKhLA4r2kUvCGMoMuuaLsOnFi7vyYFct/L
+I371Q8V0bahu07mW9LldxxlnC/m+WAp38imIJVL/wqwwQPkeOv600CDqz0e9QH5M
+Vd9dnPMWN/Z2iQdWIgU4v0WntASSYweXDnH6L3gJ5P4Z85JIHpPX1Vdn/QKBgF/C
+x0i43vV8/xhBw9J6xYnNymDOmf8sOsF/6D0fXDcSRJl8Bplfczl4qWQRLnfChSZu
+DO0Zc0fMtWrGXKZSvs3G5n6+zHD6Cf3o9+FTEQTBtmu3yVQirlCOq05TxpyqzhJA
++g2s5R1rpi34BGcp02I8u/HkaXY6BrIz1OGXhG4bAoGAcPSz4gJlce2THom9xNo6
+qQGUbFPH4XlTtWpJECqAaviTqM4l9cBfZwF5wfaYEDg/WaDoBYh6OdraFOT/puvU
+SxhEd205UstLApIfX2khzdmQuE7V9sHA1PKgezP8iZZJ8OO3UDPsynwT1clTwfby
+s4yB64Wv1u4UzMc3+4UlCHE=
+-----END PRIVATE KEY-----
+`
+});
+
+// --- ROUTES ---
+
+/**
+ * Route: GET /balance/:userId
+ * Docs: Get the balance of a user by their ID.
+ */
+server.get('/balance/:userId', (req, res) => {
+    const userId = req.params.userId;
+    if (!economy) {
+        res.status(503).json({ error: 'Economy system is currently unavailable.' });
+        return;
+    }
+
+    const balance = economy.getMoney(userId);
+    res.status(200).json({ balance });
+
+}, 'Gets the current balance of a given user by their ID.');
+
+
+/**
+ * Route: POST /pay/:userId?amount=<number>
+ * Docs: Pay a user or organization.
+ */
+server.post('/pay/:userId', async (req, res) => {
+    const targetId = req.params.userId;
+    const amountStr = req.query.amount;
+
+    if (!economy) {
+        res.status(503).json({ error: 'Economy system is currently unavailable.' });
+        return;
+    }
+
+    // --- Validation ---
+    if (!amountStr) {
+        res.status(400).json({ error: 'Missing required query parameter: amount' });
+        return;
+    }
+    const amount = parseInt(amountStr, 10);
+    if (isNaN(amount) || amount < 1) {
+        res.status(400).json({ error: 'Invalid or non-positive amount specified.' });
+        return;
+    }
+
+    // --- Logic ---
+    const requester = req.message.author; // The user/bot making the API call
+    let paymentInfo;
+
+    // Check if target is a user ID or an organization name
+    if (/^\d+$/.test(targetId)) {
+        const targetUser = await client.users.fetch(targetId).catch(() => null);
+        if (!targetUser) {
+            res.status(404).json({ error: `User with ID ${targetId} not found.` });
+            return;
+        }
+        paymentInfo = await economy.pay(requester, targetUser, amount, null);
+    } else {
+        const org = orgs?.getOrg(targetId);
+        if (!org) {
+            res.status(404).json({ error: `Organization '${targetId}' not found.` });
+            return;
+        }
+        paymentInfo = await economy.pay(requester, org, amount, null);
+    }
+
+    // --- Response ---
+    if (paymentInfo) {
+        res.status(200).json({ message: 'Payment successful.', details: paymentInfo });
+    } else {
+        res.status(500).json({ error: 'Payment failed. This is likely due to insufficient funds.' });
+    }
+
+}, 'Pays a user or organization a specified amount. Requires an `amount` query parameter.');
+
+const blocks: {
+    [blocker: string]: Set<string>
+} = {};
+
+/**
+ * Route: POST /payrequest/:userId?amount=<number>&channel=<channelId>
+ * Body: { "description": "your reason here" }
+ * Docs: Request a payment from another user.
+ */
+server.post('/payrequest/:userId', async (req, res) => {
+    const targetUserId = req.params.userId;
+    const amountStr = req.query.amount;
+    const channelId = req.query.channel;
+    const description = req.body?.description;
+
+    if (!economy) {
+        res.status(503).json({ error: 'Economy system is currently unavailable.' });
+        return;
+    }
+
+    // --- Validation ---
+    if (!amountStr || !channelId || !description) {
+        res.status(400).json({ error: 'Missing required parameters. Needs `amount` & `channel` in query, and `description` in JSON body.' });
+        return;
+    }
+    const amount = parseInt(amountStr, 10);
+    if (isNaN(amount) || amount < 1) {
+        res.status(400).json({ error: 'Invalid or non-positive amount specified.' });
+        return;
+    }
+
+    // --- Entity Fetching & Validation ---
+    const [targetUser, targetChannel] = await Promise.all([
+        client.users.fetch(targetUserId).catch(() => null),
+        client.channels.fetch(channelId).catch(() => null)
+    ]);
+
+    if (!targetUser) {
+        res.status(404).json({ error: 'User to request from not found.' }); return;
+    }
+    if (!targetChannel) {
+        res.status(404).json({ error: 'Target channel for request not found.' }); return;
+    }
+    if (!targetChannel.isTextBased() || targetChannel.isVoiceBased()) {
+        res.status(400).json({ error: 'Invalid channel type. Must be a text-based channel.' });
+        return;
+    }
+    
+    if (blocks[targetUser.id]) {
+        if (blocks[targetUser.id].has(req.authorId)) {
+            res.status(401).json({ error: 'User blocked you' });
+            return;
+        }
+    }
+
+    // --- Building the Interactive Message ---
+    const requester = req.message.author;
+    const embed = {
+        color: 0x2b2d31,
+        description: `## Payment Request\n\n<@${requester.id}> is requesting **${stringifyMoney(amount)}**.\n\n> ${description.split('\n').join('\n> ')}`,
+    };
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId('payrequest_confirm').setLabel('Pay').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('payrequest_decline').setLabel('Decline').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('payrequest_block').setLabel('Block').setStyle(ButtonStyle.Danger)
+    );
+
+    // --- Sending the request and handling the long-running process ---
+    const requestMessage = await (targetChannel as TextChannel).send({
+        content: `-# <@${targetUser.id}>`,
+        embeds: [embed],
+        components: [row]
+    }).catch(err => {
+        console.error("Failed to send payment request message:", err);
+        return null;
+    });
+
+    if (!requestMessage) {
+        res.status(500).json({ error: "Failed to send message in the target channel. Check bot permissions." });
+        return;
+    }
+
+    // **KEY**: Send an intermediate response to the API client immediately.
+    res.status(102).json({
+        message: "Payment request sent successfully. Awaiting user interaction.",
+        requestMessageId: requestMessage.id
+    });
+
+    const collector = requestMessage.createMessageComponentCollector({
+        filter: i => i.user.id === targetUser.id,
+        time: 1000 * 60 * 60 * 48, // 48 hours
+    });
+
+    collector.on('collect', async interaction => {
+        // Acknowledge the interaction so it doesn't time out, but send no visible reply.
+        // This is the key to preventing the "Already Replied" error.
+        //await interaction.deferUpdate();
+
+        let finalEmbed = { ...embed }; // copy original embed
+
+        if (interaction.customId === 'payrequest_confirm') {
+            if (!interaction.isButton()) return;
+            const paymentInfo = await economy!.pay(targetUser, requester, amount, interaction);
+            if (paymentInfo) {
+                finalEmbed.description += `\n\n*<@${targetUser.id}> accepted the request.*`;
+                // Send the FINAL response back to the original API caller
+                res.status(200).json({ type: "accepted", message: "Payment request accepted.", paymentInfo });
+            } else {
+                finalEmbed.description += `\n\n*<@${targetUser.id}>'s payment failed, likely due to insufficient funds.*`;
+                // Send the FINAL response back to the original API caller
+                res.status(500).json({ type: "payment_failed", message: "Payment failed." });
+            }
+        } else if (interaction.customId === 'payrequest_decline') {
+            finalEmbed.description += `\n\n*<@${targetUser.id}> declined the request.*`;
+            res.status(200).json({ type: "declined", message: "Payment request declined by user." });
+        } else if (interaction.customId === 'payrequest_block') {
+            finalEmbed.description += `\n\n*<@${targetUser.id}> declined the request and blocked the requester.*`;
+            // TODO: Block logic
+            if (!blocks[interaction.user.id]) {
+                blocks[interaction.user.id] = new Set();
+            }
+            blocks[interaction.user.id].add(requester.id);
+            res.status(200).json({ type: "blocked", message: "Payment request declined and requester blocked." });
+        }
+
+        // Edit the interactive message with the final outcome.
+        // We already deferred the update, so we use editReply.
+        await requestMessage.edit({ embeds: [finalEmbed], components: [] });
+
+        // Stop the collector since we have our answer.
+        collector.stop();
+    });
+
+collector.on('end', (collected, reason) => {
+    if (reason === 'time' && collected.size === 0) {
+        // No one responded, request expired.
+        const finalEmbed = { ...embed };
+        finalEmbed.description += `\n\n*This payment request has expired.*`;
+        requestMessage.edit({ embeds: [finalEmbed], components: [] }).catch(() => { });
+        console.log(`[BotAPIServer] Payrequest ${requestMessage.id} expired.`);
+    }
+});
+
+}, 'Requests a payment from another user. Requires `amount` and `channel` query params, and a `description` in the JSON body.');

@@ -5,7 +5,7 @@ import { FileState, GoogleAIFileManager } from "@google/generative-ai/server";
 import { renderMermaidToBuffer } from "../mermaid";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI!);
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro-exp-03-25" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro" });
 const fileManager = new GoogleAIFileManager(process.env.GEMINI!);
 
 export default class AI {
@@ -20,7 +20,9 @@ export default class AI {
         if (
             !message.mentions.users.has(this.client.user!.id) &&
             !message.mentions.members!.has(this.client.user!.id) &&
-            message.mentions.repliedUser?.id !== this.client.user!.id
+            message.mentions.repliedUser?.id !== this.client.user!.id ||
+            message.content.startsWith(`<@${this.client.user!.id}>:api`) ||
+            message.content.startsWith(`<@!${this.client.user!.id}>:api`)
         ) return;
 
         // AI was mentioned or replied to. now we need to get all the messages. but first make we assert to typescript that this is text channel
