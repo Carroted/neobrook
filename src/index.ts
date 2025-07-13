@@ -599,35 +599,6 @@ This API allows other bots to interact with the economy system.
 const server = new BotAPIServer(client, {
     docs: apiDocs,
     shortDescription: 'Economy bot with a \'drops\' currency and orgs system',
-    privateKey: `-----BEGIN PRIVATE KEY-----
-MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDG8lKNTA1uhA5H
-Wa6ih+e/GPVQOQCmERLT4NgMD9pc1yLohFr2YXf4j223SdNX1oeuSPGs7fgg5+9J
-lKinZ1QJXXTT07p6VgBlCq5Dg4N4lA1F0DeJcG1hfgjDnNdQA6vdA+rTBeq7muxH
-SRJoOS9s2fKCMSO6/tuwt+IR/XNbtF3UUbzNKrh3F0aD7v1nZQpaOcMyJ9D68N4s
-nPJDPo6Xk5iwMc+N3d5rNVqD9HlLATp7TuYsluBJJXm6NJNKTNnc3/e08kg+pwZn
-rzMtV8sOk1GgPbf36Yd0ztuciB8+8be6ixq0Rg212pMRAJOvaZdBiTIgCfT+xpe8
-KJzyU08XAgMBAAECggEAVMzvsTjMtOHnMDSjAraJauRZlINnqmG2s8ewb5vGSTKO
-t6vLFiA/whxo+OqoAlX4aarAESUyUdxrG+MY7JpXsNI8PRqP7xt/eZJO64pAXQJG
-kg6JzbS1ewv88lyFTp7x//hufNqVzrffpRcZmIFfnLdd7m7BuzBtNmt7Go39QQXj
-/01tC8o9Ttmf8EDPIbECo9GlTp/8DeQx1kJJkW7XI9HLXqfi6fq9kKNmpxbqeE5S
-EA1P9riAk1TaDqA4fmvQk1zmBCCtJxLBnFN+AD/QcKMAXambd2CTLePAkGyO7tuH
-4ZM5ufU24Phb2ZcXTheWo4HZCIrRKiq2+//xSz+N+QKBgQD+X1tG2xOZJhyMqx3G
-im8IIN+8NIW3WImDawbfj12YbYqNdFANPLtGHQoI3zE5e/cyAoUq8hZhkAX7/NY1
-NUCywx2yTijkNTlAOt+KHvKtuMKQxynjUbJQzjZigauh5SbtVixDdnNB0qMXVFpr
-+0nLJUrP2AaDFs8ViUXNz4gbVQKBgQDIOC6t8hjMaFk6ec5L7Ufu1+zYPfZ1enuE
-odJ8Dlo8BC3MqpBbpwPvmXGWOTUNsCYZdW41g66ypgxtHJJ98v2gq5xfutVwZHKi
-Tk4c/B+W1EIRWUit1IWLGmdB7RN/qANO5TCPJUX0U8JeDgSVUGkHxJfuS+aB3sRj
-whXZw7n4uwKBgQCuZKvMeTgHgGSEYHCKhLA4r2kUvCGMoMuuaLsOnFi7vyYFct/L
-I371Q8V0bahu07mW9LldxxlnC/m+WAp38imIJVL/wqwwQPkeOv600CDqz0e9QH5M
-Vd9dnPMWN/Z2iQdWIgU4v0WntASSYweXDnH6L3gJ5P4Z85JIHpPX1Vdn/QKBgF/C
-x0i43vV8/xhBw9J6xYnNymDOmf8sOsF/6D0fXDcSRJl8Bplfczl4qWQRLnfChSZu
-DO0Zc0fMtWrGXKZSvs3G5n6+zHD6Cf3o9+FTEQTBtmu3yVQirlCOq05TxpyqzhJA
-+g2s5R1rpi34BGcp02I8u/HkaXY6BrIz1OGXhG4bAoGAcPSz4gJlce2THom9xNo6
-qQGUbFPH4XlTtWpJECqAaviTqM4l9cBfZwF5wfaYEDg/WaDoBYh6OdraFOT/puvU
-SxhEd205UstLApIfX2khzdmQuE7V9sHA1PKgezP8iZZJ8OO3UDPsynwT1clTwfby
-s4yB64Wv1u4UzMc3+4UlCHE=
------END PRIVATE KEY-----
-`
 });
 
 // --- ROUTES ---
