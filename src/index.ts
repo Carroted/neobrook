@@ -171,7 +171,7 @@ client.on(Events.MessageCreate, async message => {
         throw new Error('Lack of economic value');
     }
     try {
-        if (message.content.startsWith(client.user!.id + '!api ')) {
+        if (message.content.startsWith(client.user!.id + '!api ') && false) {
             let parts = message.content.split(' ');
 
             let command = parts[1];
