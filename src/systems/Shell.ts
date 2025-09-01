@@ -26,7 +26,7 @@ export default class Shell {
     } = {};
 
     async runShell(message: OmitPartialGroupDMChannel<Message>) {
-        if (!message.content.startsWith('$') || message.content.length <= 1) {
+        if (!message.content.startsWith('!$') || message.content.length <= 1) {
             return;
         }
 
@@ -42,7 +42,7 @@ export default class Shell {
         }
         const sendNew = async () => {
             let prependText = newShell ? 'Welcome to the Brook shell!\n\n' : '';
-            let command = message.content.slice(1).trim();
+            let command = message.content.slice(2).trim();
             let cwdBefore = this.shells[message.author.id].cwd;
             if (cwdBefore.startsWith('/home/' + message.author.id)) {
                 cwdBefore = cwdBefore.replace('/home/' + message.author.id, '~');
