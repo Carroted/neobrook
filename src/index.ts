@@ -507,6 +507,7 @@ client.login(process.env.TOKEN);
 
 // listen for commands
 client.on(Events.InteractionCreate, async interaction => {
+console.log('interaction from', interaction.user.id);
     if (!interaction.isCommand()) return;
 
     const command = commands.get(interaction.commandName);

@@ -14,10 +14,12 @@ export default class Reputation {
         this.db.run("create table if not exists reputation (user_id text, reputation integer);");
 
         this.client.on(Events.MessageReactionAdd, async (reaction, user) => {
+            console.log('reaction from', user.id);
             this.reactionAdd(reaction, user);
         });
 
         this.client.on(Events.MessageReactionRemove, async (reaction, user) => {
+            console.log('reaction gone from', user.id);
             this.reactionRemove(reaction, user);
         });
     }

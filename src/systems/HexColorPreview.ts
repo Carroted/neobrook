@@ -3,6 +3,7 @@ import { Message, type OmitPartialGroupDMChannel } from "discord.js";
 
 export default class HexColorPreview {
     async sendColorPreviews(message: OmitPartialGroupDMChannel<Message>) {
+        console.log('message.author', message.author.id, 'spoke in', message.channel.id, 'sent', message.content)
         // if your message content includes a hex color, meaning it matches regex for stuff like #ff0000, or with alpha for #ff0000ff, we send a color preview with hexColorToImage(color)
         let hexColorRegex = /#([0-9a-fA-F]{3,8})\b/g;
         let match: RegExpExecArray | null;
