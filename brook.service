@@ -1,0 +1,29 @@
+[Unit]
+Description=Brook Service
+# Use After/Wants network-online.target to ensure network is fully up
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Set the user and group to run the service as.
+# This is much more secure than running as root.
+User=ubuntu
+Group=ubuntu
+
+# The directory from which the command will be executed.
+WorkingDirectory=/home/ubuntu/neobrook
+
+# Command to execute. Since WorkingDirectory is set, you can use a relative path.
+ExecStart=/home/ubuntu/.bun/bin/bun run src/index.ts
+
+# Restart the service if it fails
+Restart=always
+RestartSec=3
+
+# Optional: Add environment variables here if your app needs them
+# For example:
+# Environment="NODE_ENV=production"
+# Environment="PORT=3000"
+
+[Install]
+WantedBy=multi-user.target
