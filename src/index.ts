@@ -496,7 +496,7 @@ client.on(Events.MessageCreate, async message => {
         beatsRock.doGames(message);
         //jobs.doJobs(message);
         shell.runShell(message);
-        ai.complete(message);
+        // ai.complete(message);
     } catch (e) {
         console.log(e);
         message.channel.send('<:error:1224892997749964892>');
