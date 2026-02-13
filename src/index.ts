@@ -59,7 +59,8 @@ const hexColorPreview = new HexColorPreview();
 const beatsRock = new BeatsRock(client);
 //const jobs = new Jobs(client, economy);
 const shell = new Shell();
-const ai = new AI(client);
+// const ai = new AI(client);
+const ai2 = new AI2(client);
 
 const rest = new REST({ version: '9' }).setToken(process.env.TOKEN!);
 
@@ -497,6 +498,7 @@ client.on(Events.MessageCreate, async message => {
         //jobs.doJobs(message);
         shell.runShell(message);
         // ai.complete(message);
+        ai2.complete(message);
     } catch (e) {
         console.log(e);
         message.channel.send('<:error:1224892997749964892>');
