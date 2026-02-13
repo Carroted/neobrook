@@ -74,6 +74,7 @@ import path from 'path';
 //import Stocks from './systems/Stocks';
 import AI from './systems/AI';
 import { BotAPIServer } from './botport';
+import AI2 from './systems/AI2';
 
 const slashCommandFiles = fs.readdirSync(path.join(__dirname, 'commands', 'slash')).filter(file => file.endsWith('.ts'));
 
