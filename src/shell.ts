@@ -622,10 +622,20 @@ class ShellEnvironment {
             else {
                 let joined = path.join(dirsContainer, this.userID, newPath!);
                 let code = fs.readFileSync(joined).toString();
-                let scriptAST = parse(code);
-                let handled = await this.handleScript(scriptAST);
-                commandStdout += handled.stdout;
-                commandStderr += handled.stderr;
+                if (commandName.endsWith('.js') || commandName.endsWith('.ts')) {
+                    try {
+                        let result = await runSandboxedCode(code, getMemory(this.db, this.userID));
+                        commandStdout += result.output + '\n';
+                        updateMemory(this.db, this.userID, result.mem);
+                    } catch (e: any) {
+                        commandStderr += e.toString() + '\n';
+                    }
+                } else {
+                    let scriptAST = parse(code);
+                    let handled = await this.handleScript(scriptAST);
+                    commandStdout += handled.stdout;
+                    commandStderr += handled.stderr;
+                }
             }
         } // else, command not found
 
