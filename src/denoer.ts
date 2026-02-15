@@ -139,7 +139,7 @@ export async function runSandboxedCode(
         await writeFile(filePath, fullContent, { encoding: "utf8" });
 
         // Using V8 flags as a backup, but the Proxy does the heavy lifting
-        const child = spawn("/home/ubuntu/.deno/bin/deno", [
+        const child = spawn("deno", [
             "run",
             "--no-prompt",
             "--no-remote",

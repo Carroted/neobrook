@@ -59,7 +59,7 @@ const wizardHelper = new WizardHelper(client);
 const hexColorPreview = new HexColorPreview();
 const beatsRock = new BeatsRock(client);
 //const jobs = new Jobs(client, economy);
-const shell = new Shell();
+const shell = new Shell(db);
 // const ai = new AI(client);
 const ai2 = new AI2(client);
 

@@ -15,6 +15,7 @@ export default class Shell {
     shells: {
         [userID: string]: ShellEnvironment
     } = {};
+    db: Database;
     channelTerminals: {
         [userID: string]: {
             [channelID: string]: {
@@ -24,9 +25,12 @@ export default class Shell {
             }
         }
     } = {};
+    constructor(db: Database) {
+        this.db = db;
+    }
 
     async runShell(message: OmitPartialGroupDMChannel<Message>) {
-        if (!message.content.startsWith('!$') || message.content.length <= 1) {
+        if (!message.content.startsWith('$') || message.content.length <= 1) {
             return;
         }
 
@@ -34,7 +38,8 @@ export default class Shell {
 
         if (!this.shells[message.author.id]) {
             newShell = true;
-            this.shells[message.author.id] = new ShellEnvironment(message.author.id);
+            this.shells[message.author.id] = new ShellEnvironment(message.author.id, this.db);
+            this.shells[message.author.id].cwd = '/home/' + message.author.id;
         }
 
         if (!this.channelTerminals[message.author.id]) {
@@ -42,12 +47,12 @@ export default class Shell {
         }
         const sendNew = async () => {
             let prependText = newShell ? 'Welcome to the Brook shell!\n\n' : '';
-            let command = message.content.slice(2).trim();
+            let command = message.content.slice(1).trim();
             let cwdBefore = this.shells[message.author.id].cwd;
             if (cwdBefore.startsWith('/home/' + message.author.id)) {
                 cwdBefore = cwdBefore.replace('/home/' + message.author.id, '~');
             }
-            let out = this.shells[message.author.id].run(command);
+            let out = await this.shells[message.author.id].run(command);
             message.delete();
             // format our new cwd
             let cwdAfter = this.shells[message.author.id].cwd;
@@ -80,7 +85,7 @@ export default class Shell {
                 if (cwdBefore.startsWith('/home/' + message.author.id)) {
                     cwdBefore = cwdBefore.replace('/home/' + message.author.id, '~');
                 }
-                let out = this.shells[message.author.id].run(command);
+                let out = await this.shells[message.author.id].run(command);
                 message.delete();
                 // format our new cwd
                 let cwdAfter = this.shells[message.author.id].cwd;

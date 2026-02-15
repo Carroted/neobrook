@@ -3,6 +3,8 @@ import type { Command, ScriptAST, Word } from 'bash-parser';
 import fs from 'fs';
 import path from 'path';
 
+import { runSandboxedCode } from './denoer';
+import { getMemory, updateMemory } from './systems/TS';
 function removeTrailingNewlines(str: string): string {
     while (str.endsWith('\n')) {
         str = str.substring(0, str.length - 1);
@@ -32,17 +34,26 @@ function getUserPath(userID: string, p: string): string | null {
 
 let annihilated = false;
 
+import Database from "bun:sqlite";
 class ShellEnvironment {
+    db: Database;
     userID: string;
     cwd: string;
     env: {
         [key: string]: string
     };
 
-    constructor(userID: string) {
+    constructor(userID: string, db: Database) {
         this.userID = userID;
+        this.db = db;
         // we will run our setup script
         this.cwd = '/';
+        this.env = {
+            "HOME": "/home/" + userID,
+            "REAL": "hii",
+            "THE_ANSWER_TO_LIFE_THE_UNIVERSE_AND_EVERYTHING": "41.999999204",
+            "PATH": "/usr/bin"
+        };
         const setupScript = `
         mkdir -p /home/${userID};
         mkdir -p /usr/bin;
@@ -59,21 +70,15 @@ class ShellEnvironment {
 
         echo 'echo "Welcome to the the brook shell :3"' > /usr/bin/help;
         `;
-        this.run(setupScript);
+        console.log(this.run(setupScript));
         this.cwd = '/home/' + userID;
-        this.env = {
-            "HOME": "/home/" + userID,
-            "REAL": "hii",
-            "THE_ANSWER_TO_LIFE_THE_UNIVERSE_AND_EVERYTHING": "41.999999204",
-            "PATH": "/usr/bin"
-        };
     }
 
     getEnv(key: string): string {
         return this.env[key] ?? '';
     }
 
-    handleWord(word: Word): string {
+    async handleWord(word: Word): Promise<string> {
         if (!word) {
             console.log('wtf')
         }
@@ -86,7 +91,7 @@ class ShellEnvironment {
                 substituted = substituted.substring(0, expansion.loc.start) + this.getEnv(expansion.parameter) + substituted.substring(expansion.loc.end + 1);
             }
             else if (expansion.type === 'CommandExpansion') {
-                let out = this.handleScript(expansion.commandAST!).stdout;
+                let out = (await this.handleScript(expansion.commandAST!)).stdout;
                 substituted = substituted.substring(0, expansion.loc.start) + removeTrailingNewlines(out) + substituted.substring(expansion.loc.end + 1);
             }
         }
@@ -105,12 +110,12 @@ class ShellEnvironment {
         return getUserPath(this.userID, path.join(this.cwd, p));
     }
 
-    handleCommand(command: Command): {
+    async handleCommand(command: Command): Promise<{
         stdout: string,
         stderr: string,
         exitCode: number
-    } {
-        let commandName = this.handleWord(command.name);
+    }> {
+        let commandName = await this.handleWord(command.name);
         let commandStdout: string = '';
         let commandStderr: string = '';
 
@@ -123,12 +128,12 @@ class ShellEnvironment {
         if (command.suffix) {
             for (let suffix of command.suffix) {
                 if (suffix.type === 'Word') {
-                    args.push(this.handleWord(suffix));
+                    args.push(await this.handleWord(suffix));
                 }
                 else if (suffix.type === 'Redirect') {
                     redirects.push({
                         operator: suffix.op.text,
-                        file: this.handleWord(suffix.file)
+                        file: await this.handleWord(suffix.file)
                     });
                 }
             }
@@ -413,7 +418,7 @@ class ShellEnvironment {
                 else {
                     let joined = path.join(dirsContainer, this.userID, newPath!);
                     if (fs.lstatSync(joined).isDirectory() && recursive) {
-                        fs.rmdirSync(joined, { recursive: true });
+                        fs.rmSync(joined, { recursive: true });
                     } else if (fs.lstatSync(joined).isDirectory() && !recursive) {
                         commandStderr += 'rm: Looks like uh oh\n'; // this should never happen
                     } else {
@@ -495,6 +500,52 @@ class ShellEnvironment {
                 }
             }
         }
+        else if (commandName === 'node' || commandName === 'deno' || commandName === 'bun') {
+            // we are looking for filename. we look if they passed `run` as first arg. they can also do node file.js
+            let fileArgIndex = 0;
+            if (args[0] === 'run') {
+                fileArgIndex = 1;
+            }
+            if (args[0] === '--version' || args[0] === '-v') {
+                commandStdout = 'This is not a real ' + commandName + ', think of it as an alias for running JS/TS files.\n';
+            } else {
+                let fileName = args[fileArgIndex];
+                if (!fileName) {
+                    commandStderr += commandName + ': no input file\n';
+                } else {
+                    let newPath = this.getPath(fileName);
+                    let failed = false;
+                    let message = 'No such file or directory';
+                    if (newPath === null) {
+                        failed = true;
+                    }
+                    else {
+                        let joined = path.join(dirsContainer, this.userID, newPath);
+                        if (!fs.existsSync(joined)) {
+                            failed = true;
+                        }
+                        else if (fs.lstatSync(joined).isDirectory()) {
+                            failed = true;
+                            message = 'Is a directory';
+                        }
+                    }
+                    if (failed) {
+                        commandStderr += commandName + ': ' + message + '\n';
+                    }
+                    else {
+                        let joined = path.join(dirsContainer, this.userID, newPath!);
+                        let code = fs.readFileSync(joined).toString();
+                        try {
+                            let result = await runSandboxedCode(code, getMemory(this.db, this.userID));
+                            commandStdout += result.output + '\n';
+                            updateMemory(this.db, this.userID, result.mem);
+                        } catch (e: any) {
+                            commandStderr += e.toString() + '\n';
+                        }
+                    }
+                }
+            }
+        }
 
         // if its a relative or absolute path, run it, but if its relative it has to start with ./ or ../ otherwise it wouldnt work
         else if (commandName.includes('/')) { // cheaty way but it works
@@ -526,10 +577,21 @@ class ShellEnvironment {
             else {
                 let joined = path.join(dirsContainer, this.userID, scriptPath!);
                 let code = fs.readFileSync(joined).toString();
-                let scriptAST = parse(code);
-                let handled = this.handleScript(scriptAST);
-                commandStdout += handled.stdout;
-                commandStderr += handled.stderr;
+                // get file ext. if its .js or .ts we use runSandboxedCode
+                if (commandName.endsWith('.js') || commandName.endsWith('.ts')) {
+                    try {
+                        let result = await runSandboxedCode(code, getMemory(this.db, this.userID));
+                        commandStdout += result.output + '\n';
+                        updateMemory(this.db, this.userID, result.mem);
+                    } catch (e: any) {
+                        commandStderr += e.toString() + '\n';
+                    }
+                } else {
+                    let scriptAST = parse(code);
+                    let handled = await this.handleScript(scriptAST);
+                    commandStdout += handled.stdout;
+                    commandStderr += handled.stderr;
+                }
             }
         }
         else if (pathCommands.length > 0) {
@@ -561,7 +623,7 @@ class ShellEnvironment {
                 let joined = path.join(dirsContainer, this.userID, newPath!);
                 let code = fs.readFileSync(joined).toString();
                 let scriptAST = parse(code);
-                let handled = this.handleScript(scriptAST);
+                let handled = await this.handleScript(scriptAST);
                 commandStdout += handled.stdout;
                 commandStderr += handled.stderr;
             }
@@ -597,17 +659,17 @@ class ShellEnvironment {
         };
     }
 
-    handleScript(scriptAST: ScriptAST): {
+    async handleScript(scriptAST: ScriptAST): Promise<{
         stdout: string,
         stderr: string,
-    } {
+    }> {
         let stdout: string = '';
         let stderr: string = '';
 
         try {
             for (let command of scriptAST.commands) {
                 if (command.type === 'Command') {
-                    let out = this.handleCommand(command);
+                    let out = await this.handleCommand(command);
                     stdout += out.stdout;
                     stderr += out.stderr;
                 }
@@ -626,12 +688,12 @@ class ShellEnvironment {
         };
     }
 
-    run(code: string): {
+    async run(code: string): Promise<{
         stdout: string,
         stderr: string,
-    } {
+    }> {
         let scriptAST = parse(code);
-        let handled = this.handleScript(scriptAST);
+        let handled = await this.handleScript(scriptAST);
         return handled;
     }
 }
