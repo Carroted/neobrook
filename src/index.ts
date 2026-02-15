@@ -54,6 +54,7 @@ const client = new Client({
 });
 
 const rep = new Reputation(db, client);
+const ts = new TS(db, client);
 const wizardHelper = new WizardHelper(client);
 const hexColorPreview = new HexColorPreview();
 const beatsRock = new BeatsRock(client);
@@ -75,6 +76,7 @@ import path from 'path';
 import AI from './systems/AI';
 import { BotAPIServer } from './botport';
 import AI2 from './systems/AI2';
+import TS from './systems/TS';
 
 const slashCommandFiles = fs.readdirSync(path.join(__dirname, 'commands', 'slash')).filter(file => file.endsWith('.ts'));
 
@@ -500,6 +502,7 @@ client.on(Events.MessageCreate, async message => {
         shell.runShell(message);
         // ai.complete(message);
         ai2.complete(message);
+        ts.complete(message);
     } catch (e) {
         console.log(e);
         message.channel.send('<:error:1224892997749964892>');

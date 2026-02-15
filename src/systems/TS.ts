@@ -1,0 +1,66 @@
+import { runSandboxedCode } from "../denoer";
+import Database from "bun:sqlite";
+
+import { Client, EmbedBuilder, Events, Message, MessageType, TextChannel, type OmitPartialGroupDMChannel } from "discord.js";
+
+export default class TS {
+    client: Client;
+    db: Database;
+
+    constructor(db: Database, client: Client) {
+        this.db = db;
+        this.client = client;
+        this.db.run("create table if not exists ts_memory (user_id text PRIMARY KEY, memory_json text);");
+    }
+
+    getMemory(user_id: string): any {
+        let stmt = this.db.query("select * from ts_memory where user_id = ?");
+        let rows = stmt.all(user_id);
+        if (rows.length > 0) {
+            try {
+                return JSON.parse((rows[0] as any).memory_json);
+            } catch {
+                return {};
+            }
+        }
+        else {
+            return {};
+        }
+    }
+
+    async complete(message: OmitPartialGroupDMChannel<Message>) {
+        if (message.content.startsWith("!ts ")) {
+            const code = message.content.slice(4);
+            await message.channel.sendTyping();
+
+            const mem = this.getMemory(message.author.id);
+            try {
+                const result = await runSandboxedCode(code, mem);
+
+                const stringJson = JSON.stringify(result.mem);
+
+                // Update memory in DB
+                this.db.run("insert or replace into ts_memory (user_id, memory_json) values (?, ?)", [
+                    message.author.id,
+                    stringJson
+                ]);
+
+                if (result.output.trim().length === 0) {
+                    message.react('✅');
+                } else {
+                    message.reply({
+                        content: '```ansi\n' + result.output + '\n```',
+                        allowedMentions: { parse: [] },
+                    });
+                }
+
+
+            } catch (error) {
+                message.reply({
+                    content: `Error executing code: ${error}`,
+                    allowedMentions: { parse: [] },
+                });
+            }
+        }
+    }
+}
