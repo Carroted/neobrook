@@ -98,7 +98,7 @@ const PREAMBLE = `
 
 function createPostamble(secret: string): string {
     return `;;
-    
+
 (function() {
   try {
     const serialized = JSON.stringify(mem, (key, value) => {
@@ -139,7 +139,7 @@ export async function runSandboxedCode(
         await writeFile(filePath, fullContent, { encoding: "utf8" });
 
         // Using V8 flags as a backup, but the Proxy does the heavy lifting
-        const child = spawn("deno", [
+        const child = spawn("/home/ubuntu/.deno/bin/deno", [
             "run",
             "--no-prompt",
             "--no-remote",
@@ -200,4 +200,4 @@ export async function runSandboxedCode(
         try { await unlink(filePath); } catch { }
     }
 }
-console.log(await runSandboxedCode(`throw new Error("Test error");`));
+// console.log(await runSandboxedCode(`throw new Error("Test error");`));
