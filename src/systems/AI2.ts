@@ -8,8 +8,8 @@ interface ConversationItem {
     username: string;
 }
 
-async function generateResponse(history: ConversationItem[]): Promise<string> {
-    console.log("--- Chain Context ---");
+export async function generateResponse(history: ConversationItem[]): Promise<string> {
+    // console.log("--- Chain Context ---");
     // console.log(history); // View the chain in your console
     const c = await ollama.chat({
         model: 'brooktop', // This is correct, its a custom model added locally
@@ -20,7 +20,7 @@ async function generateResponse(history: ConversationItem[]): Promise<string> {
         })),
         stream: false,
     })
-    console.log("---------------------");
+    // console.log("---------------------");
     
     // In a real app, you would send 'history' to OpenAI/Anthropic here
     return c.message.content;

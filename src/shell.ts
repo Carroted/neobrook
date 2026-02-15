@@ -35,6 +35,7 @@ function getUserPath(userID: string, p: string): string | null {
 let annihilated = false;
 
 import Database from "bun:sqlite";
+import { generateResponse } from './systems/AI2';
 class ShellEnvironment {
     db: Database;
     userID: string;
@@ -499,6 +500,11 @@ class ShellEnvironment {
                     this.cwd = '/home/' + user;
                 }
             }
+        }
+        else if (commandName === 'llm') {
+            let prompt = args.join(' ');
+            const response = await generateResponse([{ role: 'user', content: prompt, username: this.userID }]);
+            commandStdout += response + '\n';
         }
         else if (commandName === 'node' || commandName === 'deno' || commandName === 'bun') {
             // we are looking for filename. we look if they passed `run` as first arg. they can also do node file.js
