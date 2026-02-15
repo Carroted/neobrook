@@ -36,6 +36,7 @@ let annihilated = false;
 
 import Database from "bun:sqlite";
 import { generateResponse } from './systems/AI2';
+import { calc } from './commands/slash/math';
 class ShellEnvironment {
     db: Database;
     userID: string;
@@ -505,6 +506,15 @@ class ShellEnvironment {
             let prompt = args.join(' ');
             const response = await generateResponse([{ role: 'user', content: prompt, username: this.userID }]);
             commandStdout += response + '\n';
+        }
+        else if (commandName === 'math') {
+            let expression = args.join(' ');
+            const result = calc(expression);
+            if (result.error) {
+                commandStderr += result.error + '\n';
+            } else {
+                commandStdout += result.result + '\n';
+            }
         }
         else if (commandName === 'node' || commandName === 'deno' || commandName === 'bun') {
             // we are looking for filename. we look if they passed `run` as first arg. they can also do node file.js

@@ -2,6 +2,7 @@ import { runSandboxedCode } from "../denoer";
 import Database from "bun:sqlite";
 
 import { Client, EmbedBuilder, Events, Message, MessageType, TextChannel, type OmitPartialGroupDMChannel } from "discord.js";
+import { calc } from "../commands/slash/math";
 
 export function getMemory(db: Database, user_id: string): any {
     let stmt = db.query("select * from ts_memory where user_id = ?");
@@ -40,7 +41,19 @@ export default class TS {
 
     async complete(message: OmitPartialGroupDMChannel<Message>) {
         if (message.content.startsWith("!math ")) {
-
+            const expression = message.content.slice(6);
+            const result = calc(expression);
+            if (result.error) {
+                message.reply({
+                    content: result.error,
+                    allowedMentions: { parse: [] },
+                });
+            } else {
+                message.reply({
+                    content: result.result!,
+                    allowedMentions: { parse: [] },
+                });
+            }
         }
         if (message.content.startsWith("!ts ")) {
             const code = message.content.slice(4);

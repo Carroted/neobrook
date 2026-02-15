@@ -30,10 +30,10 @@ math.import({
     },
 }, { override: true });
 
-export function calc(expression: string): { result: number | null, error: string | null } {
+export function calc(expression: string): { result: string | null, error: string | null } {
     try {
         const result = limitedEvaluate(expression);
-        return { result, error: null };
+        return { result: result.toString(), error: null };
     } catch (error) {
         return { result: null, error: '```\n' + (error as any).toString().replace('Error: ', '').trim() + '\n```' };
     }
