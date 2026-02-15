@@ -44,12 +44,12 @@ export default class TS {
             const expression = message.content.slice(6);
             const result = calc(expression);
             if (result.error) {
-                message.reply({
+                message.channel.send({
                     content: result.error,
                     allowedMentions: { parse: [] },
                 });
             } else {
-                message.reply({
+                message.channel.send({
                     content: result.result!,
                     allowedMentions: { parse: [] },
                 });
