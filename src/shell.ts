@@ -537,7 +537,7 @@ class ShellEnvironment {
                         let code = fs.readFileSync(joined).toString();
                         try {
                             let result = await runSandboxedCode(code, getMemory(this.db, this.userID));
-                            commandStdout += result.output + '\n';
+                            commandStdout += (result.output.trim().length > 0) ? result.output + '\n' : '';
                             updateMemory(this.db, this.userID, result.mem);
                         } catch (e: any) {
                             commandStderr += e.toString() + '\n';
@@ -581,7 +581,7 @@ class ShellEnvironment {
                 if (commandName.endsWith('.js') || commandName.endsWith('.ts')) {
                     try {
                         let result = await runSandboxedCode(code, getMemory(this.db, this.userID));
-                        commandStdout += result.output + '\n';
+                        commandStdout += (result.output.trim().length > 0) ? result.output + '\n' : '';
                         updateMemory(this.db, this.userID, result.mem);
                     } catch (e: any) {
                         commandStderr += e.toString() + '\n';
@@ -625,7 +625,7 @@ class ShellEnvironment {
                 if (commandName.endsWith('.js') || commandName.endsWith('.ts')) {
                     try {
                         let result = await runSandboxedCode(code, getMemory(this.db, this.userID));
-                        commandStdout += result.output + '\n';
+                        commandStdout += (result.output.trim().length > 0) ? result.output + '\n' : '';
                         updateMemory(this.db, this.userID, result.mem);
                     } catch (e: any) {
                         commandStderr += e.toString() + '\n';
