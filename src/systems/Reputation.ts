@@ -1,11 +1,19 @@
 import { Client, Events, GuildMember, Message, MessageReaction, TextChannel, User } from "discord.js";
-import type { MessageCreateOptions, MessageEditOptions, PartialMessageReaction, PartialUser, } from 'discord.js';
+import type { APIEmbed, MessageCreateOptions, MessageEditOptions, PartialMessageReaction, PartialUser, } from 'discord.js';
 import Database from "bun:sqlite";
 
 export default class Reputation {
     db: Database;
     client: Client;
 
+    getReputationRankings(limit: number): { user_id: string, reputation: number }[] {
+        let stmt = this.db.query("select * from reputation order by reputation desc limit ?");
+        let rows = stmt.all(limit);
+        return rows as any as {
+            user_id: string,
+            reputation: number
+        }[];
+    }
     constructor(db: Database, client: Client) {
         this.db = db;
         this.client = client;
@@ -33,7 +41,60 @@ export default class Reputation {
                         content: `Your reputation is ${rep}`,
                         ephemeral: true,
                     });
-                }
+                }else if (interaction.commandName === 'repleaderboard') {
+                        // 1 in 5 chance
+                        function randomRange(min: number, max: number) {
+                            return Math.floor(Math.random() * (max - min + 1)) + min;
+                        }
+                        let value = randomRange(1, 10);
+                        if (value < 2) {
+
+                            let quotes = [
+                                "Air holds memories !",
+                                "The tree gets fixed when the air remembers it !",
+                                "The future is remembered !",
+                                "I always go to the forest !",
+                                "I see cool things I remember !",
+                                "I have cool dreams !",
+                                "Call me at `911` !",
+                                "I am going for a run !",
+                                "A tree can't fall ! Yay !",
+                                "I have a good sleep each night !",
+                            ];
+                            let quote = quotes[Math.floor(Math.random() * quotes.length)];
+
+                            interaction.reply({
+                                content: quote,
+                                ephemeral: false,
+                            });
+                            return;
+                        }
+
+                        let reputationRankings = this.getReputationRankings(10);
+                        let embed2: APIEmbed = {
+                            color: 0x2b2d31,
+                            title: 'Reputation Leaderboard',
+                            description: `Reputation points are currently in rea.\n\n`
+                        };
+                        let index2 = 0;
+                        let leaderboardCount2 = 0;
+                        while (true) {
+                            if (index2 >= reputationRankings.length) break;
+                            if (leaderboardCount2 >= 10) break;
+                            let row = reputationRankings[index2];
+                            let isUser = /^\d+$/.test(row.user_id);
+                            if (isUser) {
+                                embed2.description += `${leaderboardCount2 + 1}. <@${row.user_id}>: **${row.reputation.toString()}** <:upvote:1309965553770954914>\n`;
+                            } else {
+                                embed2.description += `${leaderboardCount2 + 1}. **${row.user_id}**: **${row.reputation.toString()}** <:upvote:1309965553770954914>\n`;
+                            }
+
+                            index2++;
+                            leaderboardCount2++;
+                        }
+
+                        interaction.reply({ embeds: [embed2], ephemeral: true });
+                    } 
             }
         });
     }
