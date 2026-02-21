@@ -22,6 +22,20 @@ export default class Reputation {
             console.log('reaction gone from', user.id);
             this.reactionRemove(reaction, user);
         });
+
+
+
+        this.client.on(Events.InteractionCreate, async (interaction) => {
+            if (interaction.isChatInputCommand()) {
+                if (interaction.commandName === 'rep') {
+                    let rep = this.getRep(interaction.user.id);
+                    await interaction.reply({
+                        content: `Your reputation is ${rep}`,
+                        ephemeral: true,
+                    });
+                }
+            }
+        });
     }
 
     async reactionAdd(reaction: MessageReaction | PartialMessageReaction, user: User | PartialUser) {
