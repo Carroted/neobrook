@@ -501,7 +501,7 @@ client.on(Events.MessageCreate, async message => {
         //jobs.doJobs(message);
         shell.runShell(message);
         // ai.complete(message);
-        ai2.complete(message);
+        // ai2.complete(message);
         ts.complete(message);
     } catch (e) {
         console.log(e);
