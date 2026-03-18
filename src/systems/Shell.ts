@@ -14,6 +14,8 @@ function removeTrailingNewlines(str: string): string {
 
 import { mkdir, readdir, readFile, writeFile, rm, stat as fsStat } from "fs/promises";
 
+const dec = new TextDecoder();
+
 export default class Shell {
     shells: {
         [userID: string]: WasmShell,
@@ -81,7 +83,7 @@ export default class Shell {
                 cwdBefore = cwdBefore.replace(home, '~');
             }
             let out = await this.shells[message.author.id].exec(command);
-            message.delete();
+            // message.delete();
             // format our new cwd
             let cwdAfter = this.shells[message.author.id].getCwd();
             if (cwdAfter.startsWith(home)) {
@@ -90,7 +92,7 @@ export default class Shell {
             let msg = null;
             let state = 'No output';
             if (out) {
-                state = '\x1b[34;1m' + message.author.username + '@brook\x1b[0m:\x1b[36;1m' + cwdBefore + '\x1b[0m$ ' + command + '\n' + out.stdout + out.stderr + '\x1b[32;1m' + message.author.username + '@brook\x1b[0m:\x1b[33;1m' + cwdAfter + '\x1b[0m$ ';
+                state = '\x1b[34;1m' + message.author.username + '@brook\x1b[0m:\x1b[36;1m' + cwdBefore + '\x1b[0m$ ' + command + '\n' + dec.decode(out.stdout) + dec.decode(out.stderr) + '\x1b[32;1m' + message.author.username + '@brook\x1b[0m:\x1b[33;1m' + cwdAfter + '\x1b[0m$ ';
                 msg = await message.channel.send('```ansi\n' + state + '█```');
             } else {
                 msg = await message.channel.send('No output');
