@@ -92,7 +92,7 @@ export default class Shell {
             let msg = null;
             let state = 'No output';
             if (out) {
-                state = '\x1b[34;1m' + message.author.username + '@brook\x1b[0m:\x1b[36;1m' + cwdBefore + '\x1b[0m$ ' + command + '\n' + dec.decode(out.stdout) + dec.decode(out.stderr) + '\x1b[32;1m' + message.author.username + '@brook\x1b[0m:\x1b[33;1m' + cwdAfter + '\x1b[0m$ ';
+                state = '\x1b[34;1m' + message.author.username + '@brook\x1b[0m:\x1b[36;1m' + cwdBefore + '\x1b[0m$ ' + command + '\n' + dec.decode(out.stdout) + dec.decode(out.stderr) + '\x1b[34;1m' + message.author.username + '@brook\x1b[0m:\x1b[36;1m' + cwdAfter + '\x1b[0m$ ';
                 msg = await message.channel.send('```ansi\n' + state + '█```');
             } else {
                 msg = await message.channel.send('No output');
