@@ -2,7 +2,8 @@ import { Client, Message, type OmitPartialGroupDMChannel } from "discord.js";
 import { Database } from "bun:sqlite";
 import fs from 'fs';
 import path from 'path';
-import ShellEnvironment from "../shell";
+import ShellEnvironment, { dirsContainer } from "../shell";
+import { WasmShell } from "wasm-shell";
 
 function removeTrailingNewlines(str: string): string {
     while (str.endsWith('\n')) {
@@ -11,9 +12,11 @@ function removeTrailingNewlines(str: string): string {
     return str;
 }
 
+import { mkdir, readdir, readFile, writeFile, rm, stat as fsStat } from "fs/promises";
+
 export default class Shell {
     shells: {
-        [userID: string]: ShellEnvironment
+        [userID: string]: WasmShell,
     } = {};
     db: Database;
     channelTerminals: {
@@ -33,36 +36,61 @@ export default class Shell {
         if (!message.content.startsWith('$') || message.content.length <= 1) {
             return;
         }
-
-        let newShell = false;
+        // if thing right after the $ is a number, ignore it (so when people say money like $100 it doesnt trigger this)
+        if (/^\$\d/.test(message.content)) {
+            return;
+        }
 
         if (!this.shells[message.author.id]) {
-            newShell = true;
-            this.shells[message.author.id] = new ShellEnvironment(message.author.id, this.db);
-            this.shells[message.author.id].cwd = '/home/' + message.author.id;
+            const toReal = (rel: string) => path.join(dirsContainer, message.author.id, rel);
+            this.shells[message.author.id] = new WasmShell();
+
+            this.shells[message.author.id].mount("/home/", {
+                async read(path) {
+                    return readFile(toReal(path));
+                },
+                async write(path, data) {
+                    const full = toReal(path);
+                    await mkdir(full.substring(0, full.lastIndexOf("/")), { recursive: true });
+                    await writeFile(full, data);
+                },
+                async list(path) {
+                    const entries = await readdir(toReal(path), { withFileTypes: true });
+                    return entries.map(e => e.name);
+                },
+                async stat(path) {
+                    const s = await fsStat(toReal(path));
+                    return { isFile: s.isFile(), isDir: s.isDirectory(), isDevice: false, size: s.size };
+                },
+                async remove(path) {
+                    await rm(toReal(path), { recursive: true, force: true });
+                },
+            });
+            this.shells[message.author.id].setEnv("HOME", "/home");
+            this.shells[message.author.id].setCwd("/home");
         }
 
         if (!this.channelTerminals[message.author.id]) {
             this.channelTerminals[message.author.id] = {};
         }
         const sendNew = async () => {
-            let prependText = newShell ? 'Welcome to the Brook shell!\n\n' : '';
             let command = message.content.slice(1).trim();
-            let cwdBefore = this.shells[message.author.id].cwd;
-            if (cwdBefore.startsWith('/home/' + message.author.id)) {
-                cwdBefore = cwdBefore.replace('/home/' + message.author.id, '~');
+            const home = this.shells[message.author.id].getEnv("HOME") ?? "/home";
+            let cwdBefore = this.shells[message.author.id].getCwd();
+            if (cwdBefore.startsWith(home)) {
+                cwdBefore = cwdBefore.replace(home, '~');
             }
-            let out = await this.shells[message.author.id].run(command);
+            let out = await this.shells[message.author.id].exec(command);
             message.delete();
             // format our new cwd
-            let cwdAfter = this.shells[message.author.id].cwd;
-            if (cwdAfter.startsWith('/home/' + message.author.id)) {
-                cwdAfter = cwdAfter.replace('/home/' + message.author.id, '~');
+            let cwdAfter = this.shells[message.author.id].getCwd();
+            if (cwdAfter.startsWith(home)) {
+                cwdAfter = cwdAfter.replace(home, '~');
             }
             let msg = null;
             let state = 'No output';
             if (out) {
-                state = prependText + '\x1b[32;1m' + message.author.username + '@brook\x1b[0m:\x1b[33;1m' + cwdBefore + '\x1b[0m$ ' + command + '\n' + out.stdout + out.stderr + '\x1b[32;1m' + message.author.username + '@brook\x1b[0m:\x1b[33;1m' + cwdAfter + '\x1b[0m$ ';
+                state = '\x1b[34;1m' + message.author.username + '@brook\x1b[0m:\x1b[36;1m' + cwdBefore + '\x1b[0m$ ' + command + '\n' + out.stdout + out.stderr + '\x1b[32;1m' + message.author.username + '@brook\x1b[0m:\x1b[33;1m' + cwdAfter + '\x1b[0m$ ';
                 msg = await message.channel.send('```ansi\n' + state + '█```');
             } else {
                 msg = await message.channel.send('No output');
@@ -74,32 +102,6 @@ export default class Shell {
                 state,
             };
         }
-        if (!this.channelTerminals[message.author.id][message.channel.id]) {
-            sendNew();
-        } else {
-            if (this.channelTerminals[message.author.id][message.channel.id].msgs_since > 4) {
-                sendNew();
-            } else {
-                let command = message.content.slice(1).trim();
-                let cwdBefore = this.shells[message.author.id].cwd;
-                if (cwdBefore.startsWith('/home/' + message.author.id)) {
-                    cwdBefore = cwdBefore.replace('/home/' + message.author.id, '~');
-                }
-                let out = await this.shells[message.author.id].run(command);
-                message.delete();
-                // format our new cwd
-                let cwdAfter = this.shells[message.author.id].cwd;
-                if (cwdAfter.startsWith('/home/' + message.author.id)) {
-                    cwdAfter = cwdAfter.replace('/home/' + message.author.id, '~');
-                }
-
-                this.channelTerminals[message.author.id][message.channel.id].state += command + '\n' + out.stdout + out.stderr + '\x1b[32;1m' + message.author.username + '@brook\x1b[0m:\x1b[33;1m' + cwdAfter + '\x1b[0m$ ';
-                this.channelTerminals[message.author.id][message.channel.id].msg.edit({
-                    content: '```ansi\n' + this.channelTerminals[message.author.id][message.channel.id].state + '█```',
-                });
-            }
-        }
-
-
+        sendNew();
     }
 }

@@ -25,6 +25,7 @@
     "openai": "^6.21.0",
     "simplex-noise": "^4.0.3",
     "unsplash-js": "^7.0.19",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "wasm-shell": "^0.2.1"
   }
 }

@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 1,
   "workspaces": {
     "": {
       "name": "brook",
@@ -22,6 +21,7 @@
         "simplex-noise": "^4.0.3",
         "unsplash-js": "^7.0.19",
         "uuid": "^11.0.3",
+        "wasm-shell": "^0.2.1",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -1005,6 +1005,8 @@
     "vscode-languageserver-types": ["vscode-languageserver-types@3.17.5", "", {}, "sha512-Ld1VelNuX9pdF39h2Hgaeb5hEZM2Z3jUrrMgWQAu82jMtZp7p3vJT3BzToKtZI7NgQssZje5o0zryOrhQvzQAg=="],
 
     "vscode-uri": ["vscode-uri@3.0.8", "", {}, "sha512-AyFQ0EVmsOZOlAnxoFOGOq1SQDWAB7C6aqMGS23svWAllfOaxbuFvcT8D1i8z3Gyn8fraVeZNNmN6e9bxxXkKw=="],
+
+    "wasm-shell": ["wasm-shell@0.2.1", "", {}, "sha512-B5WGhmamLPFQ99WZ8cS/bMmeECmsvl5SzXZQe8SONaWiwk3FzvCDLyBqPeE/sRM9x52mI7KLP4Y/0BWjwyTUrA=="],
 
     "whatwg-fetch": ["whatwg-fetch@3.6.20", "", {}, "sha512-EqhiFU6daOA8kpjOWTL0olhVOF3i7OrFzSYiGsEMB8GcXS+RrzauAERX65xMeNWVqxA6HXH2m69Z9LaKKdisfg=="],
 

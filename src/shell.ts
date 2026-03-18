@@ -12,7 +12,7 @@ function removeTrailingNewlines(str: string): string {
     return str;
 }
 
-let dirsContainer = path.join(import.meta.dir, '..', 'dirs');
+export let dirsContainer = path.join(import.meta.dir, '..', 'dirs');
 // create dirs container if it doesn't exist
 if (!fs.existsSync(dirsContainer)) {
     fs.mkdirSync(dirsContainer);
