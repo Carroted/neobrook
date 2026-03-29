@@ -12,7 +12,7 @@ export async function generateResponse(history: ConversationItem[]): Promise<str
     // console.log("--- Chain Context ---");
     // console.log(history); // View the chain in your console
     const c = await ollama.chat({
-        model: 'brooktop', // This is correct, its a custom model added locally
+        model: 'amy:2b', // This is correct, its a custom model added locally
         keep_alive: '10h',
         messages: history.map(item => ({
             role: item.role === 'user' ? 'user' : 'assistant',
